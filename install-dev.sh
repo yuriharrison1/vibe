@@ -5,23 +5,20 @@ echo "=== Setup de Desenvolvimento - Vibe Project ==="
 echo "Sistema: Fedora 43"
 echo ""
 
-# Atualizar sistema
-echo "[1/6] Atualizando sistema..."
-sudo dnf update -y
 
 # Instalar dependências base
 echo "[2/6] Instalando dependências base..."
 sudo dnf install -y \
-    python3.13 \
-    python3.13-pip \
-    python3.13-devel \
+    python3 \
+    python3-pip \
+    python3-devel \
     git \
     sqlite \
     sqlite-devel
 
 # Criar ambiente virtual
 echo "[3/6] Criando ambiente virtual Python..."
-python3.13 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 # Atualizar pip
@@ -39,9 +36,14 @@ pip install \
     mypy \
     pre-commit
 
-# Configurar git hooks (será populado depois)
-echo "[6/6] Preparando pre-commit (aguardando configuração)..."
-# pre-commit install será executado após .pre-commit-config.yaml existir
+# Configurar git hooks
+echo "[6/6] Instalando pre-commit hooks..."
+if [ -f .pre-commit-config.yaml ]; then
+    pre-commit install
+    echo "Pre-commit hooks instalados!"
+else
+    echo "Aviso: .pre-commit-config.yaml não encontrado. Execute 'pre-commit install' após criá-lo."
+fi
 
 echo ""
 echo "✓ Setup concluído!"
