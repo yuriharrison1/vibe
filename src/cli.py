@@ -5,6 +5,8 @@ from pathlib import Path
 import click
 
 from src import __version__
+from src.database import Database
+from src.models import Objective, ObjectiveStatus, ObjectiveType
 from src.project import init_project
 from src.validator import StructureValidator
 
@@ -85,10 +87,117 @@ def project_init(path: str, force: bool) -> None:
         raise SystemExit(1)
 
 
+def _get_database() -> Database:
+    """Retorna instância do banco de dados padrão."""
+    db_path = Path("state/vibe.db")
+    db_path.parent.mkdir(exist_ok=True)
+    return Database(db_path)
+
+
 @objective.command(name="new")
 def objective_new() -> None:
     """Cria um novo objetivo."""
-    click.echo("🚧 Em desenvolvimento")
+    click.echo("📝 Criando novo objetivo")
+    click.echo("")
+
+    # Nome
+    nome = click.prompt("Nome do objetivo", type=str)
+    while not nome.strip():
+        click.echo("❌ Nome não pode ser vazio")
+        nome = click.prompt("Nome do objetivo", type=str)
+
+    # Descrição
+    descricao = click.prompt("Descrição", type=str)
+    while not descricao.strip():
+        click.echo("❌ Descrição não pode ser vazia")
+        descricao = click.prompt("Descrição", type=str)
+
+    # Tipos
+    click.echo("\nTipos disponíveis:")
+    for i, tipo in enumerate(ObjectiveType, start=1):
+        click.echo(f"  {i}. {tipo.value}")
+    click.echo("  (separar múltiplos por vírgula, ex: 1,3,5)")
+
+    tipos_input = click.prompt("Selecione os tipos", type=str)
+    indices = []
+    for part in tipos_input.split(","):
+        part = part.strip()
+        if part.isdigit():
+            idx = int(part) - 1
+            if 0 <= idx < len(ObjectiveType):
+                indices.append(idx)
+    if not indices:
+        click.echo("⚠️  Nenhum tipo selecionado, usando CLI_COMMAND como padrão")
+        indices = [0]  # CLI_COMMAND
+
+    tipos = [list(ObjectiveType)[i] for i in indices]
+
+    # Entradas
+    entradas_str = click.prompt(
+        "Entradas (lista separada por vírgula, opcional)",
+        default="",
+        show_default=False,
+    )
+    entradas = [e.strip() for e in entradas_str.split(",") if e.strip()]
+
+    # Saídas esperadas
+    saidas_str = click.prompt(
+        "Saídas esperadas (lista separada por vírgula, opcional)",
+        default="",
+        show_default=False,
+    )
+    saidas_esperadas = [s.strip() for s in saidas_str.split(",") if s.strip()]
+
+    # Efeitos colaterais
+    efeitos_str = click.prompt(
+        "Efeitos colaterais (lista separada por vírgula, opcional)",
+        default="",
+        show_default=False,
+    )
+    efeitos_colaterais = [ef.strip() for ef in efeitos_str.split(",") if ef.strip()]
+
+    # Invariantes
+    invariantes_str = click.prompt(
+        "Invariantes (lista separada por vírgula, opcional)",
+        default="",
+        show_default=False,
+    )
+    invariantes = [inv.strip() for inv in invariantes_str.split(",") if inv.strip()]
+
+    # Criar objeto
+    objective = Objective(
+        nome=nome,
+        descricao=descricao,
+        tipos=tipos,
+        entradas=entradas,
+        saidas_esperadas=saidas_esperadas,
+        efeitos_colaterais=efeitos_colaterais,
+        invariantes=invariantes,
+        status=ObjectiveStatus.DEFINIDO,
+    )
+
+    # Validar
+    errors = objective.validate()
+    if errors:
+        click.secho("❌ Erros de validação:", fg="red")
+        for err in errors:
+            click.echo(f"  - {err}")
+        raise click.Abort()
+
+    # Persistir
+    db = _get_database()
+    success = db.create_objective(objective)
+    if not success:
+        click.secho("❌ Falha ao persistir objetivo no banco de dados", fg="red")
+        raise click.Abort()
+
+    # Confirmação
+    click.secho(f"\n✅ Objetivo criado com sucesso!", fg="green")
+    click.echo(f"   ID: {objective.id}")
+    click.echo(f"   Nome: {objective.nome}")
+    click.echo(f"   Status: {objective.status.value}")
+    click.echo(f"   Tipos: {', '.join(t.value for t in objective.tipos)}")
+    click.echo("\n📋 Testes serão gerados automaticamente (em breve).")
 
 
 @objective.command(name="list")
