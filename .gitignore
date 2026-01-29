@@ -8,6 +8,9 @@ __pycache__/
 venv/
 ENV/
 env/
+*.egg-info/
+dist/
+build/
 
 # SQLite
 *.db
@@ -32,3 +35,4 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+.aider*
