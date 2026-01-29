@@ -201,9 +201,72 @@ def objective_new() -> None:
 
 
 @objective.command(name="list")
-def objective_list() -> None:
+@click.option("--status", type=click.Choice([s.value for s in ObjectiveStatus]), help="Filtrar por status")
+@click.option("--type", "type_filter", type=click.Choice([t.value for t in ObjectiveType]), help="Filtrar por tipo")
+@click.option("--verbose", is_flag=True, help="Mostrar detalhes completos")
+def objective_list(status: str | None, type_filter: str | None, verbose: bool) -> None:
     """Lista todos os objetivos."""
-    click.echo("🚧 Em desenvolvimento")
+    db = _get_database()
+    objectives = db.list_objectives()
+
+    # Aplicar filtros
+    filtered = []
+    for obj in objectives:
+        if status and obj.status.value != status:
+            continue
+        if type_filter and not any(t.value == type_filter for t in obj.tipos):
+            continue
+        filtered.append(obj)
+
+    if not filtered:
+        click.echo("📭 Nenhum objetivo encontrado.")
+        click.echo("   Use 'vibe objective new' para criar um objetivo.")
+        return
+
+    # Cabeçalho
+    click.echo(f"📋 Objetivos ({len(filtered)}):")
+    click.echo("")
+
+    if verbose:
+        # Modo detalhado
+        for i, obj in enumerate(filtered, start=1):
+            click.echo(f"  {i}. {obj.nome}")
+            click.echo(f"     ID: {obj.id}")
+            click.echo(f"     Status: {_color_status(obj.status)}")
+            click.echo(f"     Tipos: {', '.join(t.value for t in obj.tipos)}")
+            click.echo(f"     Criado: {obj.created_at.strftime('%Y-%m-%d %H:%M')}")
+            if obj.descricao:
+                click.echo(f"     Descrição: {obj.descricao[:80]}{'...' if len(obj.descricao) > 80 else ''}")
+            if obj.entradas:
+                click.echo(f"     Entradas: {', '.join(obj.entradas)}")
+            if obj.saidas_esperadas:
+                click.echo(f"     Saídas esperadas: {', '.join(obj.saidas_esperadas)}")
+            click.echo("")
+    else:
+        # Modo tabela compacta
+        click.echo("  ID (curto)  Nome                          Status       Tipos")
+        click.echo("  ──────────  ────────────────────────────  ───────────  ──────────────")
+        for obj in filtered:
+            short_id = obj.id[:8]
+            nome_trunc = obj.nome[:30] + "..." if len(obj.nome) > 30 else obj.nome.ljust(30)
+            status_colored = _color_status(obj.status)
+            tipos_str = ", ".join(t.value for t in obj.tipos[:2])
+            if len(obj.tipos) > 2:
+                tipos_str += f" (+{len(obj.tipos)-2})"
+            click.echo(f"  {short_id}  {nome_trunc}  {status_colored}  {tipos_str}")
+
+
+def _color_status(status: ObjectiveStatus) -> str:
+    """Retorna status colorido."""
+    colors = {
+        ObjectiveStatus.CONCLUIDO: "green",
+        ObjectiveStatus.FALHOU: "red",
+        ObjectiveStatus.ATIVO: "yellow",
+        ObjectiveStatus.BLOQUEADO: "magenta",
+        ObjectiveStatus.DEFINIDO: "white",
+    }
+    color = colors.get(status, "white")
+    return click.style(status.value, fg=color)
 
 
 if __name__ == "__main__":
