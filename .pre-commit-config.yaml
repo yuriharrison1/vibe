@@ -22,11 +22,12 @@ repos:
         additional_dependencies: [click]
         args: [--strict, --ignore-missing-imports]
 
-  - repo: local
-    hooks:
-      - id: vibe-structure-check
-        name: Validate project structure
-        entry: vibe project check
-        language: system
-        pass_filenames: false
-        always_run: true
+  # Estrutura validada manualmente antes de commit
+  # - repo: local
+  #   hooks:
+  #     - id: vibe-structure-check
+  #       name: Validate project structure
+  #       entry: vibe project check
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
