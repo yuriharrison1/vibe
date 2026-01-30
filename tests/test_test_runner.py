@@ -56,13 +56,13 @@ def test_another():
 """)
     
     # Executar testes
-    summary = test_runner.run_objective_tests(obj.id)
-    
+    summary = test_runner.run_objective_tests(obj.id, base_path=tmp_path)
+        
     # Verificar resultados
-    assert summary is not None
+    assert summary is not None, f"Summary é None. Diretório de testes: {test_dir}"
     assert summary.objective_id == obj.id
-    assert summary.total_tests == 2
-    assert summary.passed == 2
+    assert summary.total_tests == 2, f"Total de testes esperado: 2, obtido: {summary.total_tests}"
+    assert summary.passed == 2, f"Passed esperado: 2, obtido: {summary.passed}"
     assert summary.failed == 0
     assert summary.error == 0
 
@@ -90,7 +90,7 @@ def test_fail():
     assert False, "Falha intencional"
 """)
     
-    summary = test_runner.run_objective_tests(obj.id)
+    summary = test_runner.run_objective_tests(obj.id, base_path=tmp_path)
     
     assert summary is not None
     assert summary.total_tests == 2
@@ -117,7 +117,7 @@ def test_one():
     assert True
 """)
     
-    summary = test_runner.run_objective_tests(obj.id)
+    summary = test_runner.run_objective_tests(obj.id, base_path=tmp_path)
     
     # Verificar se summary foi salvo
     retrieved = database.get_test_summary(obj.id)

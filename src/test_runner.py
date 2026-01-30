@@ -19,11 +19,12 @@ class TestRunner:
         """Inicializa o runner com conexão ao banco."""
         self.db = db
 
-    def run_objective_tests(self, objective_id: str) -> Optional[TestSummary]:
+    def run_objective_tests(self, objective_id: str, base_path: Optional[Path] = None) -> Optional[TestSummary]:
         """Executa testes de um objetivo e salva resultados.
 
         Args:
             objective_id: ID do objetivo.
+            base_path: Caminho base para testes (opcional). Se None, usa "tests".
 
         Returns:
             TestSummary se execução bem-sucedida, None caso contrário.
@@ -34,8 +35,10 @@ class TestRunner:
             print(f"❌ Objetivo '{objective_id}' não encontrado.")
             return None
 
-        # Verificar diretório de testes
-        test_dir = Path("tests") / "objectives" / objective_id
+        # Determinar diretório de testes
+        if base_path is None:
+            base_path = Path("tests")
+        test_dir = base_path / "objectives" / objective_id
         if not test_dir.exists():
             print(f"❌ Diretório de testes não encontrado: {test_dir}")
             return None

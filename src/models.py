@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 import uuid
 
 
@@ -102,7 +102,7 @@ class Objective:
         if not self.nome.strip():
             errors.append("Nome não pode ser vazio")
         if not self.descricao.strip():
-            errors.append("Descrição não pode ser vazio")
+            errors.append("Descrição não pode ser vazia")
         if not self.tipos:
             errors.append("Pelo menos um tipo deve ser selecionado")
         return errors

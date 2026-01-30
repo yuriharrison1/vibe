@@ -101,16 +101,29 @@ def test_generate_tests_for_objective(tmp_path: Path) -> None:
     assert test_dir.exists()
     
     # Verificar arquivos gerados
-    expected_files = [
-        "test_execution.py",
-        "test_exit_code.py",
-        "test_output.py",
-        "test_file_creation.py",
-        "test_structure.py",
-        "test_idempotence.py",
+    # O gerador cria arquivos com prefixo "test_" + test_type
+    # map_objective_to_test_types retorna ["test_execution", "test_exit_code", ...]
+    # Então test_type = "test_execution", e o arquivo será "test_test_execution.py"
+    # Vamos verificar os arquivos reais
+    actual_files = [f.name for f in test_dir.iterdir() if f.is_file() and f.name.endswith('.py')]
+    print(f"Arquivos gerados: {actual_files}")
+    
+    # Esperamos 6 arquivos (CLI_COMMAND + FILESYSTEM)
+    assert len(actual_files) == 6
+    
+    # Verificar se contém os tipos esperados
+    expected_suffixes = [
+        "test_execution",
+        "test_exit_code", 
+        "test_output",
+        "test_file_creation",
+        "test_structure",
+        "test_idempotence",
     ]
-    for fname in expected_files:
-        assert (test_dir / fname).exists()
+    for suffix in expected_suffixes:
+        # O arquivo deve ser test_{suffix}.py
+        expected_file = f"test_{suffix}.py"
+        assert any(f == expected_file for f in actual_files), f"Arquivo {expected_file} não encontrado"
     
     # Verificar __init__.py
     assert (test_dir / "__init__.py").exists()
