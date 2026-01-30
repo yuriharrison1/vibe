@@ -5,7 +5,7 @@
 **Projeto:** Vibe - Plataforma de Orquestração para Vibe Coding
 **Repositório:** https://github.com/yuriharrison1/vibe
 **Branch:** main
-**Última atualização:** 29/01/2026 01:11
+**Última atualização:** 29/01/2026 (atualizado)
 
 ---
 
@@ -32,15 +32,16 @@ vibe project init [PATH]
 
 ---
 
-### Milestone 1: Modelo de Objetivos ✅ (97%)
+### Milestone 1: Modelo de Objetivos ✅ (100%)
 
 **Implementado:**
 - ✅ Models (ObjectiveType, ObjectiveStatus, Objective)
 - ✅ Database SQLite com CRUD completo
 - ✅ CLI interativa (objective new/list)
 - ✅ Filtros (--status, --type, --verbose)
-- ✅ 32 testes (31 passando)
-- ✅ CHANGELOG.md criado
+- ✅ Testes completos (todos passando)
+- ✅ CHANGELOG.md atualizado
+- ✅ Versão 0.2.0
 
 **Comandos funcionais:**
 ```bash
@@ -50,37 +51,70 @@ vibe objective list --status ATIVO
 vibe objective list --type filesystem --verbose
 ```
 
-**Issues menores:**
-- ⚠️ Versão CLI mostra 0.1.0 (deveria ser 0.2.0)
-- ⚠️ README não atualizado para Milestone 1
-- ⚠️ 1 teste falhando (test_objective_new_validation)
+---
 
-**Cobertura:** 75% (350 linhas, 87 não cobertas)
+### Milestone 2: Geração Automática de Testes ✅ (100%)
+
+**Implementado:**
+- ✅ Gerador de testes (`src/test_generator.py`)
+- ✅ Integração automática em `objective new`
+- ✅ Rollback se falha na geração
+- ✅ Comando `vibe objective generate-tests <id>`
+- ✅ Validação de integridade em `project check`
+- ✅ Testes para o gerador
+- ✅ Versão 0.3.0
+- ✅ README atualizado
+
+**Comandos funcionais:**
+```bash
+vibe objective new              # Gera testes automaticamente
+vibe objective generate-tests <ID>  # Regenerar testes
+vibe project check              # Valida objetivos com testes
+```
+
+**Cobertura:** A ser medida
 
 ---
 
-## 🚧 Próximo Milestone
+## ✅ Milestones Concluídos
 
-### Milestone 2: Geração Automática de Testes (0%)
+### Milestone 2: Geração Automática de Testes ✅ (100%)
 
-**Objetivo:** Todo objetivo gera testes automaticamente. Sem exceções.
+**Implementado:**
+- ✅ `src/test_generator.py` – mapeamento tipo → testes
+- ✅ Geração automática integrada em `vibe objective new`
+- ✅ Rollback se geração falhar
+- ✅ Comando `vibe objective generate-tests <id>`
+- ✅ Validação de integridade em `vibe project check`
+- ✅ Testes para o gerador (`tests/test_test_generator.py`)
+- ✅ Versão atualizada para 0.3.0
+- ✅ README atualizado com Milestone 2
 
-**Arquivo de prompts:** `PROMPTS_MILESTONE_2.md`
-
-**Componentes a implementar:**
-1. ✨ PROMPT 0: Correções Milestone 1 (versão, README, teste)
-2. ✨ PROMPT 1: test_generator.py (mapear tipos → testes)
-3. ✨ PROMPT 2: Integrar no objective new (obrigatório)
-4. ✨ PROMPT 3: Comando generate-tests
-5. ✨ PROMPT 4: Validação de integridade
-6. ✨ PROMPT 5: Testes do gerador
-7. ✨ PROMPT 6: Documentação (versão 0.3.0)
-
-**Critérios de aceite:**
+**Critérios atendidos:**
 - Criar objetivo gera testes automaticamente
 - Testes rodam e falham por padrão (assert False)
-- Nenhum objetivo existe sem testes
-- Rollback se geração falhar
+- Nenhum objetivo existe sem testes (validação integrada)
+- Rollback funcional se geração falhar
+
+## 🚧 Próximo Milestone
+
+### Milestone 3: Execução e Tracking de Testes (0%)
+
+**Objetivo:** O sistema sabe o estado real do projeto.
+
+**Arquivo de prompts:** `PROMPTS_MILESTONE_3.md` (a ser criado)
+
+**Componentes a implementar:**
+1. Executar testes via CLI
+2. Registrar resultado no SQLite
+3. Associar testes a objetivos
+4. Comando `objective status`
+5. Health check geral do projeto
+
+**Critérios de aceite:**
+- Status reflete realidade
+- Falha bloqueia progresso
+- Estado persistente correto
 
 ---
 
