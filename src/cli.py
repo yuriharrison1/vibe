@@ -43,9 +43,14 @@ def project_check(path: str) -> None:
     project_path = Path(path)
     validator = StructureValidator(project_path)
     errors = validator.validate_canonical_structure()
+    
+    # Validar integridade dos objetivos
+    objective_errors = validator.validate_objectives_integrity()
+    errors.extend(objective_errors)
 
     if not errors:
         click.secho("✓ Estrutura válida!", fg="green")
+        click.secho("✓ Todos os objetivos têm testes.", fg="green")
         raise SystemExit(0)
     else:
         click.secho("✗ Estrutura inválida!", fg="red")

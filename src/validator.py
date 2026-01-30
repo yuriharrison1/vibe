@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import List
 
+from src.database import Database
+
 
 class StructureValidator:
     """Valida se o projeto segue a estrutura canônica."""
@@ -38,4 +40,44 @@ class StructureValidator:
             elif not file_path.is_file():
                 errors.append(f"Não é um arquivo: {file_name}")
 
+        return errors
+
+    def validate_objectives_integrity(self) -> List[str]:
+        """Valida que todos os objetivos têm testes.
+
+        Returns:
+            Lista de erros encontrados.
+        """
+        errors: List[str] = []
+        db_path = self.project_path / "state" / "vibe.db"
+        if not db_path.exists():
+            # Sem banco, sem objetivos
+            return errors
+        
+        db = Database(db_path)
+        objectives = db.list_objectives()
+        
+        for obj in objectives:
+            test_dir = self.project_path / "tests" / "objectives" / obj.id
+            if not test_dir.exists():
+                errors.append(f"Objetivo '{obj.nome}' ({obj.id}) não tem diretório de testes")
+                continue
+            # Verificar se há pelo menos um arquivo .py
+            test_files = list(test_dir.glob("*.py"))
+            if not test_files:
+                errors.append(f"Objetivo '{obj.nome}' ({obj.id}) não tem arquivos de teste")
+                continue
+            # Verificar se os testes são executáveis (pelo menos contêm 'def test_')
+            has_test_func = False
+            for tf in test_files:
+                try:
+                    content = tf.read_text(encoding="utf-8")
+                    if "def test_" in content:
+                        has_test_func = True
+                        break
+                except Exception:
+                    pass
+            if not has_test_func:
+                errors.append(f"Objetivo '{obj.nome}' ({obj.id}) não tem funções de teste válidas")
+        
         return errors

@@ -72,29 +72,13 @@ vibe objective generate-tests <ID>  # Regenerar testes
 vibe project check              # Valida objetivos com testes
 ```
 
-**Cobertura:** A ser medida
+**Critérios atendidos:**
+- ✅ Criar objetivo gera testes automaticamente
+- ✅ Testes rodam e falham por padrão (assert False)
+- ✅ Nenhum objetivo existe sem testes (validação integrada)
+- ✅ Rollback funcional se geração falhar
 
 ---
-
-## ✅ Milestones Concluídos
-
-### Milestone 2: Geração Automática de Testes ✅ (100%)
-
-**Implementado:**
-- ✅ `src/test_generator.py` – mapeamento tipo → testes
-- ✅ Geração automática integrada em `vibe objective new`
-- ✅ Rollback se geração falhar
-- ✅ Comando `vibe objective generate-tests <id>`
-- ✅ Validação de integridade em `vibe project check`
-- ✅ Testes para o gerador (`tests/test_test_generator.py`)
-- ✅ Versão atualizada para 0.3.0
-- ✅ README atualizado com Milestone 2
-
-**Critérios atendidos:**
-- Criar objetivo gera testes automaticamente
-- Testes rodam e falham por padrão (assert False)
-- Nenhum objetivo existe sem testes (validação integrada)
-- Rollback funcional se geração falhar
 
 ## 🚧 Próximo Milestone
 
