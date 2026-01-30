@@ -86,14 +86,24 @@ vibe project check              # Valida objetivos com testes
 
 **Objetivo:** O sistema sabe o estado real do projeto.
 
-**Arquivo de prompts:** `PROMPTS_MILESTONE_3.md` (a ser criado)
+**Arquivo de prompts:** `PROMPTS_MILESTONE_3.md` ✅ **criado**
 
 **Componentes a implementar:**
-1. Executar testes via CLI
-2. Registrar resultado no SQLite
-3. Associar testes a objetivos
-4. Comando `objective status`
-5. Health check geral do projeto
+1. Executar testes via CLI (`vibe test run`)
+2. Registrar resultado no SQLite (tabelas test_runs, test_summary)
+3. Associar testes a objetivos (via TestRunner)
+4. Comando `objective status` (exibir resultados dos testes)
+5. Health check geral do projeto (integrado em `project check`)
+
+**Estrutura de prompts:**
+- PROMPT 0: Atualizar documentação Milestone 2
+- PROMPT 1/7: Estender schema SQLite
+- PROMPT 2/7: Criar modelos TestRun e TestSummary
+- PROMPT 3/7: Criar TestRunner
+- PROMPT 4/7: Comando `vibe test run`
+- PROMPT 5/7: Comando `vibe objective status`
+- PROMPT 6/7: Health check integrado
+- PROMPT 7/7: Testes e documentação (versão 0.4.0)
 
 **Critérios de aceite:**
 - Status reflete realidade
