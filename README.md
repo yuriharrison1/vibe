@@ -8,7 +8,9 @@ Sistema de orquestração que organiza, governa e valida projetos feitos com vib
 
 ## Status
 
-🚧 Em desenvolvimento - Milestone 0
+🚧 Em desenvolvimento - Milestone 3 ✅ concluído
+
+![Milestone 3](https://img.shields.io/badge/milestone-3%20complete-green)
 
 ## Documentação
 
@@ -28,6 +30,32 @@ source .venv/bin/activate
 
 ```bash
 vibe --help
+```
+
+### Comandos principais
+
+```bash
+# Criar objetivo (gera testes automaticamente)
+vibe objective new
+
+# Listar objetivos
+vibe objective list
+vibe objective list --status ATIVO
+vibe objective list --type filesystem --verbose
+
+# Executar testes
+vibe test run <ID_OBJETIVO>
+vibe test run --all
+vibe test run --all --verbose
+
+# Ver status dos testes
+vibe objective status <ID_OBJETIVO>
+vibe objective status --all
+vibe objective status --all --verbose
+
+# Validar projeto
+vibe project check
+vibe project init
 ```
 
 ## Estrutura

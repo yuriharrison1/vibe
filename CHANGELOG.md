@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-30
+
+### Added
+- Execução de testes via CLI (`vibe test run`)
+  - Executa testes de um objetivo específico
+  - Opção `--all` para executar todos os objetivos
+  - Modo `--verbose` para output detalhado
+  - Exit codes corretos (0=sucesso, 1=falha, 2=erro)
+- Tracking de resultados no SQLite
+  - Tabelas `test_runs` e `test_summary`
+  - Persistência de resultados individuais
+  - Histórico de execuções
+- Comando `vibe objective status`
+  - Status detalhado de um objetivo
+  - Opção `--all` para status geral
+  - Modo `--verbose` para detalhes dos testes
+- Health check integrado em `vibe project check`
+  - Validação de saúde dos testes
+  - Detecção de objetivos CONCLUIDO com testes falhando
+  - Avisos para testes não executados há mais de 24h
+- TestRunner com execução programática
+  - Execução de testes via pytest
+  - Parse de resultados
+  - Persistência automática
+
+### Changed
+- Atualizada versão do projeto para 0.4.0
+- `vibe project check` agora inclui validação de saúde dos testes
+- Schema do banco estendido com tabelas de tracking
+
+### Fixed
+- Nenhum
+
+### Removed
+- Nenhum
+
 ## [0.3.0] - 2026-01-29
 
 ### Added

@@ -248,3 +248,45 @@ def test_objective_list_verbose(runner: CliRunner, setup_temp_db, temp_db_path: 
     assert "Descrição:" in result.output
     assert "Entradas:" in result.output
     assert "Saídas esperadas:" in result.output
+
+
+def test_test_run_command(runner: CliRunner, setup_temp_db, temp_db_path: Path) -> None:
+    """Testa comando test run."""
+    # Primeiro criar um objetivo
+    db = Database(temp_db_path)
+    from src.models import Objective
+    obj = Objective(
+        nome="Test CLI",
+        descricao="Test command",
+        tipos=[ObjectiveType.CLI_COMMAND],
+        status=ObjectiveStatus.DEFINIDO,
+    )
+    db.create_objective(obj)
+    
+    # Gerar testes para o objetivo
+    from src.test_generator import generate_tests_for_objective
+    generate_tests_for_objective(obj)
+    
+    # Executar testes
+    result = runner.invoke(main, ["test", "run", obj.id])
+    # Como os testes gerados falham por padrão, o exit code deve ser 1
+    # Mas o comando deve executar sem erros de execução
+    assert result.exit_code in [0, 1]  # Pode ser 0 ou 1 dependendo dos testes
+    assert "Executando testes" in result.output or "testes" in result.output.lower()
+
+
+def test_objective_status(runner: CliRunner, setup_temp_db, temp_db_path: Path) -> None:
+    """Testa comando objective status."""
+    db = Database(temp_db_path)
+    from src.models import Objective
+    obj = Objective(
+        nome="Status Test",
+        descricao="Test status command",
+        tipos=[ObjectiveType.CLI_COMMAND],
+    )
+    db.create_objective(obj)
+    
+    result = runner.invoke(main, ["objective", "status", obj.id])
+    assert result.exit_code == 0
+    assert "Status Test" in result.output
+    assert obj.id[:8] in result.output

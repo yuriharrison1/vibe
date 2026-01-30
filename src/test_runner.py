@@ -1,11 +1,12 @@
 """Executor de testes para objetivos."""
 
+import re
 import subprocess
 import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from src.database import Database
 from src.models import TestRun, TestStatus, TestSummary
@@ -123,7 +124,7 @@ class TestRunner:
             print(f"❌ Erro ao executar pytest: {e}")
             return None
 
-    def _parse_pytest_output(self, stdout: str, stderr: str) -> List[tuple]:
+    def _parse_pytest_output(self, stdout: str, stderr: str) -> List[Tuple[str, TestStatus, float, Optional[str]]]:
         """Parseia output do pytest para extrair resultados.
 
         Args:
@@ -133,66 +134,88 @@ class TestRunner:
         Returns:
             Lista de (test_name, status, duration, error_message).
         """
-        results = []
+        results: List[Tuple[str, TestStatus, float, Optional[str]]] = []
         lines = stdout.split("\n")
 
-        current_test = None
-        current_status = None
-        current_duration = 0.0
-        error_lines = []
+        current_test: Optional[str] = None
+        current_status: Optional[TestStatus] = None
+        current_duration: float = 0.0
+        error_lines: List[str] = []
+        in_error = False
 
         for line in lines:
             line = line.strip()
             if not line:
                 continue
 
-            # Detectar resultado de teste
-            if line.startswith("test_"):
-                # Exemplo: "test_execution PASSED [ 50%]"
-                # ou "test_execution FAILED [ 50%]"
+            # Detectar início de uma seção de erros
+            if line.startswith("FAILURES") or line.startswith("ERRORS") or line.startswith("===="):
+                in_error = True
+                continue
+            
+            if in_error:
+                # Coletar linhas de erro
+                if line and not line.startswith("===="):
+                    error_lines.append(line)
+                continue
+
+            # Detectar resultado de teste (formato comum do pytest)
+            # Exemplo: "test_file.py::test_name PASSED [ 99%]"
+            # Ou: "test_file.py::test_name FAILED [ 99%]"
+            if "::" in line and ("PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line):
+                # Extrair nome do teste
                 parts = line.split()
-                if len(parts) >= 2:
-                    test_name = parts[0]
-                    status_str = parts[1]
-                    # Extrair duração se presente
-                    duration = 0.0
-                    for part in parts:
-                        if part.startswith("[") and part.endswith("s]"):
+                if len(parts) < 2:
+                    continue
+                    
+                # O nome do teste está antes do primeiro espaço após "::"
+                test_part = parts[0]
+                if "::" in test_part:
+                    test_name = test_part.split("::")[-1]
+                else:
+                    test_name = test_part
+                
+                # Determinar status
+                if "PASSED" in line:
+                    status = TestStatus.PASSED
+                elif "FAILED" in line:
+                    status = TestStatus.FAILED
+                elif "SKIPPED" in line:
+                    status = TestStatus.SKIPPED
+                else:
+                    status = TestStatus.ERROR
+                
+                # Extrair duração
+                duration = 0.0
+                for part in parts:
+                    if part.startswith("[") and "s]" in part:
+                        # Encontrar o número antes de 's'
+                        match = re.search(r'\[([\d.]+)s\]', part)
+                        if match:
                             try:
-                                duration_str = part[1:-2]  # Remove [ e s]
-                                duration = float(duration_str)
+                                duration = float(match.group(1))
                             except ValueError:
                                 pass
-
-                    # Mapear status
-                    if status_str == "PASSED":
-                        status = TestStatus.PASSED
-                    elif status_str == "FAILED":
-                        status = TestStatus.FAILED
-                    elif status_str == "SKIPPED":
-                        status = TestStatus.SKIPPED
-                    else:
-                        status = TestStatus.ERROR
-
-                    # Salvar teste anterior
-                    if current_test:
-                        error_msg = "\n".join(error_lines) if error_lines else None
-                        results.append((current_test, current_status, current_duration, error_msg))
-
-                    # Iniciar novo teste
-                    current_test = test_name
-                    current_status = status
-                    current_duration = duration
+                        break
+                
+                # Salvar teste anterior se houver
+                if current_test and current_status:
+                    error_msg = "\n".join(error_lines) if error_lines else None
+                    results.append((current_test, current_status, current_duration, error_msg))
                     error_lines = []
-
-            # Coletar linhas de erro para testes falhados
+                
+                # Iniciar novo teste
+                current_test = test_name
+                current_status = status
+                current_duration = duration
+            
+            # Coletar linhas de erro para o teste atual
             elif current_test and current_status in [TestStatus.FAILED, TestStatus.ERROR]:
-                if line.startswith("FAILURES") or line.startswith("ERRORS"):
-                    break
-                error_lines.append(line)
+                if line and not line.startswith("---"):
+                    error_lines.append(line)
 
         # Adicionar último teste
-        if current_test:
+        if current_test and current_status:
             error_msg = "\n".join(error_lines) if error_lines else None
             results.append((current_test, current_status, current_duration, error_msg))
 

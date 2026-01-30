@@ -193,3 +193,98 @@ def test_json_serialization_integrity(database: Database) -> None:
     assert retrieved.saidas_esperadas == obj.saidas_esperadas
     assert retrieved.efeitos_colaterais == obj.efeitos_colaterais
     assert retrieved.invariantes == obj.invariantes
+
+
+def test_test_runs_crud(database: Database) -> None:
+    """Testa métodos CRUD para test_runs."""
+    from src.models import TestRun, TestStatus
+    from datetime import datetime
+    
+    # Criar um objetivo primeiro
+    obj = Objective(
+        nome="Test Run Obj",
+        descricao="For test runs",
+        tipos=[ObjectiveType.CLI_COMMAND],
+    )
+    database.create_objective(obj)
+    
+    # Criar TestRun
+    test_run = TestRun(
+        objective_id=obj.id,
+        test_file="test_file.py",
+        test_name="test_example",
+        status=TestStatus.PASSED,
+        error_message=None,
+        duration=1.5,
+        run_at=datetime.now(),
+    )
+    
+    # Salvar
+    success = database.save_test_run(test_run)
+    assert success is True
+    
+    # Recuperar
+    runs = database.get_test_runs(obj.id)
+    assert len(runs) == 1
+    retrieved = runs[0]
+    assert retrieved.objective_id == obj.id
+    assert retrieved.test_file == "test_file.py"
+    assert retrieved.test_name == "test_example"
+    assert retrieved.status == TestStatus.PASSED
+    assert retrieved.duration == 1.5
+    
+    # Última execução
+    latest = database.get_latest_test_run(obj.id)
+    assert latest is not None
+    assert latest.id == test_run.id
+
+
+def test_test_summary_crud(database: Database) -> None:
+    """Testa métodos CRUD para test_summary."""
+    from src.models import TestSummary
+    from datetime import datetime
+    
+    # Criar um objetivo primeiro
+    obj = Objective(
+        nome="Test Summary Obj",
+        descricao="For test summary",
+        tipos=[ObjectiveType.CLI_COMMAND],
+    )
+    database.create_objective(obj)
+    
+    # Criar TestSummary
+    summary = TestSummary(
+        objective_id=obj.id,
+        total_tests=10,
+        passed=8,
+        failed=1,
+        skipped=1,
+        error=0,
+        last_run=datetime.now(),
+    )
+    
+    # Salvar
+    success = database.save_test_summary(summary)
+    assert success is True
+    
+    # Recuperar
+    retrieved = database.get_test_summary(obj.id)
+    assert retrieved is not None
+    assert retrieved.objective_id == obj.id
+    assert retrieved.total_tests == 10
+    assert retrieved.passed == 8
+    assert retrieved.failed == 1
+    assert retrieved.skipped == 1
+    assert retrieved.error == 0
+    
+    # Atualizar
+    retrieved.passed = 9
+    retrieved.failed = 0
+    success = database.update_test_summary(obj.id, retrieved)
+    assert success is True
+    
+    # Verificar atualização
+    updated = database.get_test_summary(obj.id)
+    assert updated is not None
+    assert updated.passed == 9
+    assert updated.failed == 0

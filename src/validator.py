@@ -81,3 +81,57 @@ class StructureValidator:
                 errors.append(f"Objetivo '{obj.nome}' ({obj.id}) não tem funções de teste válidas")
         
         return errors
+
+    def check_test_health(self) -> List[str]:
+        """Valida a saúde dos testes de todos os objetivos.
+
+        Returns:
+            Lista de problemas encontrados.
+        """
+        problems: List[str] = []
+        db_path = self.project_path / "state" / "vibe.db"
+        if not db_path.exists():
+            return problems
+        
+        db = Database(db_path)
+        objectives = db.list_objectives()
+        
+        for obj in objectives:
+            # Verificar se tem testes gerados
+            test_dir = self.project_path / "tests" / "objectives" / obj.id
+            if not test_dir.exists():
+                problems.append(f"Objetivo '{obj.nome}' ({obj.id}) não tem testes gerados")
+                continue
+            
+            # Verificar se testes foram executados
+            summary = db.get_test_summary(obj.id)
+            if not summary:
+                problems.append(f"Objetivo '{obj.nome}' ({obj.id}) nunca teve testes executados")
+                continue
+            
+            # Verificar se testes estão passando
+            if not summary.is_passing():
+                problems.append(
+                    f"Objetivo '{obj.nome}' ({obj.id}) tem testes falhando "
+                    f"({summary.failed + summary.error}/{summary.total_tests})"
+                )
+            
+            # Verificar se objetivo marcado como CONCLUIDO mas testes falhando
+            if obj.status == ObjectiveStatus.CONCLUIDO and not summary.is_passing():
+                problems.append(
+                    f"Objetivo '{obj.nome}' ({obj.id}) marcado como CONCLUIDO "
+                    f"mas {summary.failed + summary.error} teste(s) falhando"
+                )
+            
+            # Verificar se objetivo ATIVO sem testes executados há mais de 24h
+            if obj.status == ObjectiveStatus.ATIVO:
+                from datetime import datetime, timedelta
+                now = datetime.now()
+                time_diff = now - summary.last_run
+                if time_diff > timedelta(hours=24):
+                    problems.append(
+                        f"Objetivo '{obj.nome}' ({obj.id}) ATIVO mas testes não executados "
+                        f"há {time_diff.days} dias"
+                    )
+        
+        return problems
