@@ -129,7 +129,8 @@ def test_generate_tests_for_objective(tmp_path: Path) -> None:
     assert (test_dir / "__init__.py").exists()
     
     # Conteúdo dos arquivos
-    for fname in expected_files:
+    for suffix in expected_suffixes:
+        fname = f"test_{suffix}.py"
         content = (test_dir / fname).read_text(encoding="utf-8")
         assert "def test_" in content
         assert "assert False" in content
