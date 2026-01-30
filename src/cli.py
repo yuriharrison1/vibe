@@ -9,6 +9,7 @@ from src.database import Database
 from src.models import Objective, ObjectiveStatus, ObjectiveType
 from src.project import init_project
 from src.validator import StructureValidator
+from src.test_generator import generate_tests_for_objective, map_objective_to_test_types
 
 
 @click.group()
@@ -193,13 +194,32 @@ def objective_new() -> None:
         click.secho("❌ Falha ao persistir objetivo no banco de dados", fg="red")
         raise click.Abort()
 
+    # Gerar testes automaticamente
+    click.echo("\n📋 Gerando testes automaticamente...")
+    test_generated = generate_tests_for_objective(objective)
+    
+    if not test_generated:
+        # Rollback: remover objetivo do banco
+        db.delete_objective(objective.id)
+        click.secho("❌ Falha ao gerar testes. Objetivo não foi criado.", fg="red")
+        click.echo("   Execute 'vibe objective generate-tests' manualmente após corrigir o problema.")
+        raise click.Abort()
+    
+    # Obter tipos de teste gerados
+    test_types = map_objective_to_test_types(objective)
+    
     # Confirmação
     click.secho(f"\n✅ Objetivo criado com sucesso!", fg="green")
     click.echo(f"   ID: {objective.id}")
     click.echo(f"   Nome: {objective.nome}")
     click.echo(f"   Status: {objective.status.value}")
     click.echo(f"   Tipos: {', '.join(t.value for t in objective.tipos)}")
-    click.echo("\n📋 Testes serão gerados automaticamente (Milestone 2 em andamento).")
+    click.echo("\n📋 Testes gerados automaticamente:")
+    for tt in test_types:
+        click.echo(f"   - {tt}")
+    click.echo(f"   Localização: tests/objectives/{objective.id}/")
+    click.echo("\n⚠️  Testes estão marcados como TODO e falham por padrão.")
+    click.echo("   Implemente-os antes de marcar o objetivo como concluído.")
 
 
 @objective.command(name="list")
