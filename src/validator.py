@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List
 
 from src.database import Database
+from src.models import ObjectiveStatus
 
 
 class StructureValidator:
