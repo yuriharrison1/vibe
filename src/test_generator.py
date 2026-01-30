@@ -36,16 +36,19 @@ def map_objective_to_test_types(objective: Objective) -> List[str]:
     return unique_types
 
 
-def generate_test_directory(objective: Objective) -> Path:
+def generate_test_directory(objective: Objective, base_path: Path | None = None) -> Path:
     """Cria diretório de testes para o objetivo.
 
     Args:
         objective: Objetivo para o qual gerar testes.
+        base_path: Caminho base opcional (para testes). Se None, usa "tests".
 
     Returns:
         Caminho do diretório criado.
     """
-    base_dir = Path("tests") / "objectives"
+    if base_path is None:
+        base_path = Path("tests")
+    base_dir = base_path / "objectives"
     objective_dir = base_dir / objective.id
     objective_dir.mkdir(parents=True, exist_ok=True)
     return objective_dir
@@ -101,11 +104,12 @@ def test_{test_type}():
     return content
 
 
-def generate_tests_for_objective(objective: Objective) -> bool:
+def generate_tests_for_objective(objective: Objective, base_path: Path | None = None) -> bool:
     """Gera todos os testes para um objetivo.
 
     Args:
         objective: Objetivo para o qual gerar testes.
+        base_path: Caminho base opcional (para testes). Se None, usa "tests".
 
     Returns:
         True se todos os testes foram gerados com sucesso, False caso contrário.
@@ -117,7 +121,7 @@ def generate_tests_for_objective(objective: Objective) -> bool:
             return False
         
         # Criar diretório
-        test_dir = generate_test_directory(objective)
+        test_dir = generate_test_directory(objective, base_path)
         
         # Gerar arquivos de teste
         for test_type in test_types:
