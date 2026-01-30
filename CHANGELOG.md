@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-29
+
+### Added
+- Geração automática de testes (`src/test_generator.py`)
+  - Mapeamento tipo de objetivo → tipos de teste
+  - Criação de diretório `tests/objectives/{id}/`
+  - Geração de arquivos de teste com TODO explícito
+  - Testes falham por padrão (assert False)
+- Integração no comando `vibe objective new`
+  - Geração automática após criação
+  - Rollback se geração falhar
+- Comando `vibe objective generate-tests <id>` para regenerar testes
+- Validação de integridade em `vibe project check`
+  - Detecta objetivos sem testes
+  - Verifica estrutura de testes
+- Testes para o gerador (`tests/test_test_generator.py`)
+
+### Changed
+- Atualizada versão do projeto para 0.3.0
+- `vibe project check` agora valida integridade dos objetivos
+- Mensagens de confirmação do `objective new` incluem detalhes dos testes gerados
+
+### Fixed
+- Nenhum
+
+### Removed
+- Nenhum
+
 ## [0.2.0] - 2026-01-29
 
 ### Added

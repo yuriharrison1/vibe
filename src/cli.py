@@ -1,15 +1,17 @@
 """CLI principal do Vibe."""
 
 from pathlib import Path
+from typing import Optional
 
 import click
 
 from src import __version__
 from src.database import Database
-from src.models import Objective, ObjectiveStatus, ObjectiveType
+from src.models import Objective, ObjectiveStatus, ObjectiveType, TestStatus
 from src.project import init_project
 from src.validator import StructureValidator
 from src.test_generator import generate_tests_for_objective, map_objective_to_test_types
+from src.test_runner import TestRunner
 
 
 @click.group()

@@ -102,7 +102,117 @@ class Objective:
         if not self.nome.strip():
             errors.append("Nome não pode ser vazio")
         if not self.descricao.strip():
-            errors.append("Descrição não pode ser vazia")
+            errors.append("Descrição não pode ser vazio")
         if not self.tipos:
             errors.append("Pelo menos um tipo deve ser selecionado")
         return errors
+
+
+# Modelos para tracking de testes
+class TestStatus(str, Enum):
+    """Status de execução de um teste."""
+
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+    ERROR = "ERROR"
+
+
+@dataclass
+class TestRun:
+    """Registro de execução de um teste individual."""
+
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    objective_id: str = ""
+    test_file: str = ""
+    test_name: str = ""
+    status: TestStatus = TestStatus.FAILED
+    error_message: Optional[str] = None
+    duration: float = 0.0
+    run_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> dict:
+        """Converte para dicionário serializável."""
+        return {
+            "id": self.id,
+            "objective_id": self.objective_id,
+            "test_file": self.test_file,
+            "test_name": self.test_name,
+            "status": self.status.value,
+            "error_message": self.error_message,
+            "duration": self.duration,
+            "run_at": self.run_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TestRun":
+        """Cria a partir de um dicionário."""
+        obj = cls()
+        obj.id = data.get("id", str(uuid.uuid4()))
+        obj.objective_id = data.get("objective_id", "")
+        obj.test_file = data.get("test_file", "")
+        obj.test_name = data.get("test_name", "")
+        status_raw = data.get("status", TestStatus.FAILED.value)
+        try:
+            obj.status = TestStatus(status_raw)
+        except ValueError:
+            obj.status = TestStatus.FAILED
+        obj.error_message = data.get("error_message")
+        obj.duration = data.get("duration", 0.0)
+        run_at_raw = data.get("run_at")
+        if run_at_raw:
+            obj.run_at = datetime.fromisoformat(run_at_raw)
+        return obj
+
+
+@dataclass
+class TestSummary:
+    """Sumário de execução de testes para um objetivo."""
+
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    objective_id: str = ""
+    total_tests: int = 0
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    error: int = 0
+    last_run: datetime = field(default_factory=datetime.now)
+
+    def is_passing(self) -> bool:
+        """Retorna True se todos os testes passaram."""
+        return self.failed == 0 and self.error == 0 and self.total_tests > 0
+
+    def success_rate(self) -> float:
+        """Retorna a taxa de sucesso (0.0 a 1.0)."""
+        if self.total_tests == 0:
+            return 0.0
+        return (self.passed + self.skipped) / self.total_tests
+
+    def to_dict(self) -> dict:
+        """Converte para dicionário serializável."""
+        return {
+            "id": self.id,
+            "objective_id": self.objective_id,
+            "total_tests": self.total_tests,
+            "passed": self.passed,
+            "failed": self.failed,
+            "skipped": self.skipped,
+            "error": self.error,
+            "last_run": self.last_run.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TestSummary":
+        """Cria a partir de um dicionário."""
+        obj = cls()
+        obj.id = data.get("id", str(uuid.uuid4()))
+        obj.objective_id = data.get("objective_id", "")
+        obj.total_tests = data.get("total_tests", 0)
+        obj.passed = data.get("passed", 0)
+        obj.failed = data.get("failed", 0)
+        obj.skipped = data.get("skipped", 0)
+        obj.error = data.get("error", 0)
+        last_run_raw = data.get("last_run")
+        if last_run_raw:
+            obj.last_run = datetime.fromisoformat(last_run_raw)
+        return obj
