@@ -1,5 +1,6 @@
 """CLI principal do Vibe."""
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +8,7 @@ import click
 
 from src import __version__
 from src.database import Database
+from src.idempotency import IdempotencyValidator, OperationResult, CommandHistory
 from src.models import Objective, ObjectiveStatus, ObjectiveType, TestRun, TestStatus, TestSummary
 from src.project import init_project
 from src.validator import StructureValidator
@@ -42,6 +44,62 @@ def objective() -> None:
 def test() -> None:
     """Gerencia execução de testes."""
     pass
+
+
+@main.command(name="history")
+@click.option("--all", "show_all", is_flag=True, help="Mostrar todas as operações")
+@click.option("--command", help="Filtrar por comando")
+@click.option("--today", is_flag=True, help="Mostrar apenas operações de hoje")
+@click.option("--limit", default=20, help="Número máximo de registros a mostrar")
+def history(show_all: bool, command: Optional[str], today: bool, limit: int) -> None:
+    """Mostra histórico de comandos executados."""
+    history_mgr = _get_command_history()
+    
+    if show_all:
+        limit = 1000
+    
+    if today:
+        records = history_mgr.get_today()
+    elif command:
+        records = history_mgr.get_by_command(command, limit=limit)
+    else:
+        records = history_mgr.get_recent(limit=limit)
+    
+    if not records:
+        click.echo("📭 Nenhum comando registrado no histórico.")
+        return
+    
+    click.echo("📜 Histórico de Comandos")
+    click.echo("")
+    
+    # Cabeçalho
+    click.echo("Data/Hora           | Comando              | Resultado       | Argumentos")
+    click.echo("────────────────────┼──────────────────────┼─────────────────┼───────────")
+    
+    for record in records:
+        # Formatar data
+        dt = record["executed_at"]
+        date_str = dt.strftime("%Y-%m-%d %H:%M")
+        
+        # Formatar comando (truncar se necessário)
+        cmd = record["command"][:20].ljust(20)
+        
+        # Formatar resultado com cores
+        result = record["result"]
+        if result == OperationResult.SUCCESS:
+            result_str = click.style("SUCCESS", fg="green")
+        elif result == OperationResult.ALREADY_EXISTS:
+            result_str = click.style("ALREADY_EXISTS", fg="yellow")
+        else:
+            result_str = click.style("CONFLICT", fg="red")
+        
+        # Formatar argumentos
+        args = record.get("arguments", {})
+        args_str = json.dumps(args) if args else ""
+        if len(args_str) > 30:
+            args_str = args_str[:27] + "..."
+        
+        click.echo(f"{date_str} | {cmd} | {result_str} | {args_str}")
 
 
 @project.command(name="check")
@@ -129,11 +187,42 @@ def project_check(path: str) -> None:
 def project_init(path: str, force: bool) -> None:
     """Inicializa a estrutura canônica do projeto."""
     project_path = Path(path)
+    
+    # Verificar idempotência
+    validator = _get_idempotency_validator()
+    can_init, existing_db = validator.check_project_init(project_path)
+    
+    if not can_init and not force:
+        click.secho("⚠️  O diretório já parece ser um projeto Vibe!", fg="yellow")
+        if existing_db:
+            click.echo(f"   Banco de dados encontrado: {existing_db}")
+        click.echo("   Use --force para forçar reinicialização.")
+        click.echo("   Opções:")
+        click.echo("     [A]bortar (padrão)")
+        click.echo("     [F]orçar reinicialização")
+        
+        choice = click.prompt("Escolha", default="A", show_default=False)
+        if choice.upper() != "F":
+            # Registrar tentativa falha
+            validator.record_command(
+                command="project init",
+                arguments={"path": path, "force": force},
+                result=OperationResult.ALREADY_EXISTS,
+            )
+            click.echo("Operação cancelada.")
+            return
+    
+    # Registrar início da operação
+    validator.record_command(
+        command="project init",
+        arguments={"path": path, "force": force},
+        result=OperationResult.SUCCESS,
+    )
 
     if not force and project_path.exists():
         # Verificar se já é um projeto válido
-        validator = StructureValidator(project_path)
-        errors = validator.validate_canonical_structure()
+        validator_structure = StructureValidator(project_path)
+        errors = validator_structure.validate_canonical_structure()
         if len(errors) == 0:
             click.secho("✓ Projeto já existe e está válido!", fg="yellow")
             return
@@ -162,9 +251,20 @@ def _get_database() -> Database:
     db_path.parent.mkdir(exist_ok=True)
     return Database(db_path)
 
+def _get_idempotency_validator() -> IdempotencyValidator:
+    """Retorna instância do validador de idempotência."""
+    db = _get_database()
+    return IdempotencyValidator(db)
+
+def _get_command_history() -> CommandHistory:
+    """Retorna instância do histórico de comandos."""
+    db = _get_database()
+    return CommandHistory(db)
+
 
 @objective.command(name="new")
-def objective_new() -> None:
+@click.option("--force", is_flag=True, help="Forçar criação mesmo se nome já existir")
+def objective_new(force: bool) -> None:
     """Cria um novo objetivo."""
     click.echo("📝 Criando novo objetivo")
     click.echo("")
@@ -175,6 +275,31 @@ def objective_new() -> None:
         if nome.strip():
             break
         click.echo("❌ Nome não pode ser vazio")
+    
+    # Verificar idempotência
+    validator = _get_idempotency_validator()
+    can_create, existing_id = validator.check_objective_new(nome)
+    
+    if not can_create and not force:
+        click.secho(f"⚠️  Objetivo com nome '{nome}' já existe!", fg="yellow")
+        click.echo(f"   ID do objetivo existente: {existing_id}")
+        click.echo("   Use --force para criar mesmo assim ou escolha outro nome.")
+        
+        # Registrar tentativa falha
+        validator.record_command(
+            command="objective new",
+            arguments={"nome": nome, "force": force},
+            result=OperationResult.ALREADY_EXISTS,
+        )
+        return
+    
+    # Registrar início da operação (se for prosseguir)
+    if can_create or force:
+        validator.record_command(
+            command="objective new",
+            arguments={"nome": nome, "force": force},
+            result=OperationResult.SUCCESS,
+        )
 
     # Descrição
     while True:
@@ -363,7 +488,8 @@ def _color_status(status: ObjectiveStatus) -> str:
 @click.argument("objective_id", required=False)
 @click.option("--all", is_flag=True, help="Executar testes de todos os objetivos")
 @click.option("--verbose", "-v", is_flag=True, help="Mostrar output detalhado")
-def test_run(objective_id: Optional[str], all: bool, verbose: bool) -> None:
+@click.option("--force", is_flag=True, help="Forçar execução mesmo se testes foram executados recentemente")
+def test_run(objective_id: Optional[str], all: bool, verbose: bool, force: bool) -> None:
     """Executa testes de um objetivo específico ou todos."""
     # Validações
     if not objective_id and not all:
@@ -378,6 +504,36 @@ def test_run(objective_id: Optional[str], all: bool, verbose: bool) -> None:
     
     db = _get_database()
     runner = TestRunner(db)
+    validator = _get_idempotency_validator()
+    
+    # Verificar se testes foram executados recentemente (apenas para objetivo específico)
+    if objective_id and not force:
+        objective = db.get_objective(objective_id)
+        if objective:
+            summary = db.get_test_summary(objective_id)
+            if summary:
+                from datetime import datetime, timedelta
+                now = datetime.now()
+                time_diff = now - summary.last_run
+                if time_diff < timedelta(minutes=5):
+                    click.secho("⚠️  Testes foram executados há menos de 5 minutos!", fg="yellow")
+                    click.echo(f"   Última execução: {summary.last_run.strftime('%Y-%m-%d %H:%M:%S')}")
+                    click.echo("   Use --force para reexecutar ou aguarde alguns minutos.")
+                    
+                    # Registrar tentativa
+                    validator.record_command(
+                        command="test run",
+                        arguments={"objective_id": objective_id, "force": force},
+                        result=OperationResult.ALREADY_EXISTS,
+                    )
+                    return
+    
+    # Registrar início da operação
+    validator.record_command(
+        command="test run",
+        arguments={"objective_id": objective_id, "all": all, "force": force},
+        result=OperationResult.SUCCESS,
+    )
     
     if objective_id:
         # Verificar se objetivo existe
@@ -515,6 +671,61 @@ def _display_test_results(summary: TestSummary, verbose: bool) -> None:
         click.secho("   Estado: ✅ APROVADO", fg="green")
     else:
         click.secho("   Estado: ❌ FALHOU", fg="red")
+
+
+@objective.command(name="generate-tests")
+@click.argument("objective_id")
+@click.option("--force", is_flag=True, help="Forçar geração mesmo se testes já existirem")
+def objective_generate_tests(objective_id: str, force: bool) -> None:
+    """Gera ou regenera testes para um objetivo."""
+    db = _get_database()
+    validator = _get_idempotency_validator()
+    
+    # Buscar objetivo
+    objective = db.get_objective(objective_id)
+    if not objective:
+        click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+        raise SystemExit(1)
+    
+    # Verificar idempotência
+    can_generate, last_generated = validator.check_test_generation(objective_id)
+    
+    if not can_generate and not force:
+        click.secho("⚠️  Testes já existem para este objetivo!", fg="yellow")
+        if last_generated:
+            click.echo(f"   Última geração: {last_generated.strftime('%Y-%m-%d %H:%M:%S')}")
+        click.echo("   Use --force para sobrescrever.")
+        
+        # Registrar tentativa
+        validator.record_command(
+            command="objective generate-tests",
+            arguments={"objective_id": objective_id, "force": force},
+            result=OperationResult.ALREADY_EXISTS,
+        )
+        return
+    
+    # Registrar início da operação
+    validator.record_command(
+        command="objective generate-tests",
+        arguments={"objective_id": objective_id, "force": force},
+        result=OperationResult.SUCCESS,
+    )
+    
+    click.echo(f"📋 Gerando testes para objetivo: {objective.nome}")
+    
+    # Gerar testes
+    test_generated = generate_tests_for_objective(objective)
+    
+    if test_generated:
+        test_types = map_objective_to_test_types(objective)
+        click.secho("✅ Testes gerados com sucesso!", fg="green")
+        click.echo("\nTestes criados:")
+        for tt in test_types:
+            click.echo(f"   - {tt}")
+        click.echo(f"   Localização: tests/objectives/{objective_id}/")
+    else:
+        click.secho("❌ Falha ao gerar testes", fg="red")
+        raise SystemExit(1)
 
 
 @objective.command(name="status")
