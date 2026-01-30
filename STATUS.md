@@ -80,35 +80,74 @@ vibe project check              # Valida objetivos com testes
 
 ---
 
+### Milestone 3: Execução e Tracking de Testes ✅ (93%)
+
+**Implementado:**
+- ✅ TestRunner (`src/test_runner.py`) - 245 linhas
+- ✅ Modelos TestRun, TestSummary, TestStatus (`src/models.py`)
+- ✅ Schema SQLite estendido (tabelas test_runs, test_summary)
+- ✅ Comando `vibe test run` com flags --all e --verbose
+- ✅ Comando `vibe objective status` com visualização detalhada
+- ✅ Health check integrado em `project check`
+- ✅ Versão 0.4.0
+- ✅ CHANGELOG e README atualizados
+
+**Comandos funcionais:**
+```bash
+vibe test run <ID>              # Executar testes de um objetivo
+vibe test run --all             # Executar todos os testes
+vibe objective status <ID>      # Ver status dos testes
+vibe objective status --all     # Visão geral de todos
+vibe project check              # Inclui validação de testes
+```
+
+**Status dos testes:**
+- Total: 46 testes coletados
+- ✅ Passando: 42 (91%)
+- ❌ Falhando: 4 (9% - issue de path em test_test_runner.py)
+
+**Critérios atendidos:**
+- ✅ Status reflete realidade (TestSummary no SQLite)
+- ✅ Falha bloqueia progresso (health check detecta)
+- ✅ Estado persistente correto (test_runs e test_summary)
+
+**Pendências:**
+- ⚠️ Corrigir 4 testes falhando (path em test_test_runner.py)
+- ⚠️ Ajustar 1 teste (contagem em test_test_generator.py)
+
+---
+
 ## 🚧 Próximo Milestone
 
-### Milestone 3: Execução e Tracking de Testes (0%)
+### Milestone 4: Controle de Filesystem e Estrutura (0%)
 
-**Objetivo:** O sistema sabe o estado real do projeto.
+**Objetivo:** Garantir que o projeto não derive.
 
-**Arquivo de prompts:** `PROMPTS_MILESTONE_3.md` ✅ **criado**
+**Arquivo de prompts:** `PROMPTS_MILESTONE_4.md` ✅ **criado**
 
 **Componentes a implementar:**
-1. Executar testes via CLI (`vibe test run`)
-2. Registrar resultado no SQLite (tabelas test_runs, test_summary)
-3. Associar testes a objetivos (via TestRunner)
-4. Comando `objective status` (exibir resultados dos testes)
-5. Health check geral do projeto (integrado em `project check`)
+1. Validador expandido (detectar lixo, estrutura completa)
+2. Sistema de idempotência para comandos
+3. Histórico de comandos (command_history)
+4. Comando `vibe project clean`
+5. Comando `vibe history`
+6. `project check` expandido com relatório detalhado
 
 **Estrutura de prompts:**
-- PROMPT 0: Atualizar documentação Milestone 2
-- PROMPT 1/7: Estender schema SQLite
-- PROMPT 2/7: Criar modelos TestRun e TestSummary
-- PROMPT 3/7: Criar TestRunner
-- PROMPT 4/7: Comando `vibe test run`
-- PROMPT 5/7: Comando `vibe objective status`
-- PROMPT 6/7: Health check integrado
-- PROMPT 7/7: Testes e documentação (versão 0.4.0)
+- PROMPT 0: Corrigir testes falhando do Milestone 3
+- PROMPT 1/8: Expandir validador de estrutura
+- PROMPT 2/8: Sistema de idempotência
+- PROMPT 3/8: Integrar idempotência nos comandos
+- PROMPT 4/8: Testes de filesystem
+- PROMPT 5/8: Expandir `project check`
+- PROMPT 6/8: Comando `project clean`
+- PROMPT 7/8: Testes de idempotência
+- PROMPT 8/8: Testes e documentação (versão 0.5.0)
 
 **Critérios de aceite:**
-- Status reflete realidade
-- Falha bloqueia progresso
-- Estado persistente correto
+- Estrutura inválida é detectada
+- Comandos são idempotentes
+- Projeto pode ser validado a qualquer momento
 
 ---
 
