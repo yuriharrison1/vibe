@@ -101,16 +101,18 @@ def objective_new() -> None:
     click.echo("")
 
     # Nome
-    nome = click.prompt("Nome do objetivo", type=str)
-    while not nome.strip():
-        click.echo("❌ Nome não pode ser vazio")
+    while True:
         nome = click.prompt("Nome do objetivo", type=str)
+        if nome.strip():
+            break
+        click.echo("❌ Nome não pode ser vazio")
 
     # Descrição
-    descricao = click.prompt("Descrição", type=str)
-    while not descricao.strip():
-        click.echo("❌ Descrição não pode ser vazia")
+    while True:
         descricao = click.prompt("Descrição", type=str)
+        if descricao.strip():
+            break
+        click.echo("❌ Descrição não pode ser vazia")
 
     # Tipos
     click.echo("\nTipos disponíveis:")
@@ -197,7 +199,7 @@ def objective_new() -> None:
     click.echo(f"   Nome: {objective.nome}")
     click.echo(f"   Status: {objective.status.value}")
     click.echo(f"   Tipos: {', '.join(t.value for t in objective.tipos)}")
-    click.echo("\n📋 Testes serão gerados automaticamente (em breve).")
+    click.echo("\n📋 Testes serão gerados automaticamente no Milestone 2.")
 
 
 @objective.command(name="list")

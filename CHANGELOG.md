@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comandos `objective new` e `objective list` agora funcionais (removido "Em desenvolvimento")
 
 ### Fixed
-- Nenhum
+- Validação de campos obrigatórios no comando `objective new`
+- Mensagens de erro exibidas corretamente durante a criação de objetivos
 
 ### Removed
 - Nenhum
