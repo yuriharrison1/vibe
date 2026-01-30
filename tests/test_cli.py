@@ -66,9 +66,13 @@ def setup_temp_db(temp_db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Configura o banco de dados temporário e monkeypatch."""
     # Monkeypatch para usar o banco temporário
     original_get_database = None
+    original_get_idempotency_validator = None
+    original_get_command_history = None
     try:
         from src import cli
         original_get_database = cli._get_database
+        original_get_idempotency_validator = cli._get_idempotency_validator
+        original_get_command_history = cli._get_command_history
     except ImportError:
         pass
 
@@ -76,12 +80,28 @@ def setup_temp_db(temp_db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         db_path = temp_db_path
         db_path.parent.mkdir(exist_ok=True)
         return Database(db_path)
+    
+    def _temp_get_idempotency_validator():
+        from src.idempotency import IdempotencyValidator
+        db = _temp_get_database()
+        return IdempotencyValidator(db)
+    
+    def _temp_get_command_history():
+        from src.idempotency import CommandHistory
+        db = _temp_get_database()
+        return CommandHistory(db)
 
     monkeypatch.setattr("src.cli._get_database", _temp_get_database)
+    monkeypatch.setattr("src.cli._get_idempotency_validator", _temp_get_idempotency_validator)
+    monkeypatch.setattr("src.cli._get_command_history", _temp_get_command_history)
     yield
     # Restaurar
     if original_get_database:
         monkeypatch.setattr("src.cli._get_database", original_get_database)
+    if original_get_idempotency_validator:
+        monkeypatch.setattr("src.cli._get_idempotency_validator", original_get_idempotency_validator)
+    if original_get_command_history:
+        monkeypatch.setattr("src.cli._get_command_history", original_get_command_history)
 
 
 def test_objective_new_interactive(runner: CliRunner, setup_temp_db, temp_db_path: Path) -> None:
@@ -95,7 +115,14 @@ def test_objective_new_interactive(runner: CliRunner, setup_temp_db, temp_db_pat
         "\n"  # Efeitos colaterais (vazio)
         "\n"  # Invariantes (vazio)
     )
+    # O comando agora tem a opção --force, mas não é obrigatória
     result = runner.invoke(main, ["objective", "new"], input=input_data)
+    # Pode ser exit_code 0 ou pode pedir confirmação se nome já existe
+    # Como é um banco vazio, deve criar com sucesso
+    if result.exit_code != 0:
+        # Talvez tenha perguntado sobre --force? Vamos ver o output
+        print("Output:", result.output)
+    # Vamos assumir que deve ser 0
     assert result.exit_code == 0
     assert "✅ Objetivo criado com sucesso!" in result.output
     assert "ID:" in result.output
@@ -274,6 +301,13 @@ def test_test_run_command(runner: CliRunner, setup_temp_db, temp_db_path: Path) 
     assert result.exit_code in [0, 1]  # Pode ser 0 ou 1 dependendo dos testes
     assert "Executando testes" in result.output or "testes" in result.output.lower()
 
+
+def test_history_command(runner: CliRunner, setup_temp_db) -> None:
+    """Testa comando history."""
+    result = runner.invoke(main, ["history"])
+    # Deve funcionar mesmo sem histórico
+    assert result.exit_code == 0
+    assert "Histórico de Comandos" in result.output or "Nenhum comando registrado" in result.output
 
 def test_objective_status(runner: CliRunner, setup_temp_db, temp_db_path: Path) -> None:
     """Testa comando objective status."""
