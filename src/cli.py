@@ -199,7 +199,7 @@ def objective_new() -> None:
     click.echo(f"   Nome: {objective.nome}")
     click.echo(f"   Status: {objective.status.value}")
     click.echo(f"   Tipos: {', '.join(t.value for t in objective.tipos)}")
-    click.echo("\n📋 Testes serão gerados automaticamente no Milestone 2.")
+    click.echo("\n📋 Testes serão gerados automaticamente (Milestone 2 em andamento).")
 
 
 @objective.command(name="list")
