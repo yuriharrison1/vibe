@@ -46,60 +46,174 @@ def test() -> None:
     pass
 
 
-@main.command(name="history")
-@click.option("--all", "show_all", is_flag=True, help="Mostrar todas as operações")
-@click.option("--command", help="Filtrar por comando")
-@click.option("--today", is_flag=True, help="Mostrar apenas operações de hoje")
-@click.option("--limit", default=20, help="Número máximo de registros a mostrar")
-def history(show_all: bool, command: Optional[str], today: bool, limit: int) -> None:
-    """Mostra histórico de comandos executados."""
-    history_mgr = _get_command_history()
+@main.group()
+def ia() -> None:
+    """Comandos para integração com IA."""
+    pass
+
+
+@ia.command(name="context")
+@click.argument("objective_id")
+@click.option("--mode", type=click.Choice(["default", "aider", "claude-code"]), 
+              default="default", help="Modo de operação da IA")
+def ia_context(objective_id: str, mode: str) -> None:
+    """Gera contexto para IA trabalhar em um objetivo."""
+    from src.ia_context import IAContextManager
     
-    if show_all:
-        limit = 1000
+    db = _get_database()
+    context_mgr = IAContextManager(db)
     
-    if today:
-        records = history_mgr.get_today()
-    elif command:
-        records = history_mgr.get_by_command(command, limit=limit)
-    else:
-        records = history_mgr.get_recent(limit=limit)
+    objective = context_mgr.activate_objective(objective_id)
+    if not objective:
+        click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+        raise SystemExit(1)
     
-    if not records:
-        click.echo("📭 Nenhum comando registrado no histórico.")
-        return
-    
-    click.echo("📜 Histórico de Comandos")
+    click.echo("🎯 CONTEXTO PARA IA")
+    click.echo("=" * 80)
     click.echo("")
     
-    # Cabeçalho
-    click.echo("Data/Hora           | Comando              | Resultado       | Argumentos")
-    click.echo("────────────────────┼──────────────────────┼─────────────────┼───────────")
+    full_context = context_mgr.get_full_context(mode=mode)
+    click.echo(full_context)
     
-    for record in records:
-        # Formatar data
-        dt = record["executed_at"]
-        date_str = dt.strftime("%Y-%m-%d %H:%M")
-        
-        # Formatar comando (truncar se necessário)
-        cmd = record["command"][:20].ljust(20)
-        
-        # Formatar resultado com cores
-        result = record["result"]
-        if result == OperationResult.SUCCESS:
-            result_str = click.style("SUCCESS", fg="green")
-        elif result == OperationResult.ALREADY_EXISTS:
-            result_str = click.style("ALREADY_EXISTS", fg="yellow")
+    click.echo("=" * 80)
+    click.secho(f"✅ Contexto gerado para objetivo: {objective.nome}", fg="green")
+    click.echo(f"📁 Arquivos permitidos: {len(context_mgr._allowed_files)}")
+    click.echo(f"🎮 Modo: {mode}")
+
+
+@ia.command(name="log-action")
+@click.argument("objective_id")
+@click.option("--file", "files", multiple=True, help="Arquivo alterado (formato: caminho:descrição)")
+@click.option("--test", "tests", multiple=True, help="Teste impactado (formato: nome:resultado)")
+@click.option("--decision", "decisions", multiple=True, help="Decisão tomada (formato: decisão:justificativa)")
+@click.option("--assumption", "assumptions", multiple=True, help="Suposição feita")
+@click.option("--agent", default="claude-code", help="Agente IA utilizado")
+def ia_log_action(
+    objective_id: str,
+    files: List[str],
+    tests: List[str],
+    decisions: List[str],
+    assumptions: List[str],
+    agent: str,
+) -> None:
+    """Registra uma ação da IA no log de auditoria."""
+    from src.ia_context import IAContextManager, IAActionType
+    
+    db = _get_database()
+    context_mgr = IAContextManager(db)
+    
+    objective = context_mgr.activate_objective(objective_id)
+    if not objective:
+        click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+        raise SystemExit(1)
+    
+    # Parse files
+    files_changed = []
+    for file_str in files:
+        if ":" in file_str:
+            file_path, description = file_str.split(":", 1)
+            files_changed.append({"file": file_path.strip(), "description": description.strip()})
         else:
-            result_str = click.style("CONFLICT", fg="red")
+            files_changed.append({"file": file_str.strip(), "description": "Modificado pela IA"})
+    
+    # Parse tests
+    tests_impacted = []
+    for test_str in tests:
+        if ":" in test_str:
+            test_name, expected_result = test_str.split(":", 1)
+            tests_impacted.append({"test": test_name.strip(), "expected_result": expected_result.strip()})
+        else:
+            tests_impacted.append({"test": test_str.strip(), "expected_result": "Deve passar"})
+    
+    # Parse decisions
+    decisions_made = []
+    for decision_str in decisions:
+        if ":" in decision_str:
+            decision, justification = decision_str.split(":", 1)
+            decisions_made.append({"decision": decision.strip(), "justification": justification.strip()})
+        else:
+            decisions_made.append({"decision": decision_str.strip(), "justification": "Baseado nos requisitos"})
+    
+    # Gerar relatório
+    report = context_mgr.generate_action_log_report(
+        files_changed=files_changed,
+        tests_impacted=tests_impacted if tests_impacted else None,
+        decisions_made=decisions_made if decisions_made else None,
+        assumptions=assumptions if assumptions else None,
+        ia_agent=agent,
+    )
+    
+    click.echo("📋 RELATÓRIO DE AÇÃO DA IA")
+    click.echo("=" * 80)
+    click.echo("")
+    click.echo(report)
+    click.echo("")
+    click.secho("✅ Ação registrada no log de auditoria.", fg="green")
+
+
+@ia.command(name="history")
+@click.argument("objective_id", required=False)
+@click.option("--limit", default=20, help="Número máximo de registros a mostrar")
+def ia_history(objective_id: Optional[str], limit: int) -> None:
+    """Mostra histórico de ações da IA."""
+    from src.ia_context import IAContextManager
+    
+    db = _get_database()
+    context_mgr = IAContextManager(db)
+    
+    if objective_id:
+        # Histórico de um objetivo específico
+        objective = db.get_objective(objective_id)
+        if not objective:
+            click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+            raise SystemExit(1)
         
-        # Formatar argumentos
-        args = record.get("arguments", {})
-        args_str = json.dumps(args) if args else ""
-        if len(args_str) > 30:
-            args_str = args_str[:27] + "..."
+        actions = context_mgr.action_log.get_actions_for_objective(objective_id, limit=limit)
         
-        click.echo(f"{date_str} | {cmd} | {result_str} | {args_str}")
+        if not actions:
+            click.echo(f"📭 Nenhuma ação da IA registrada para objetivo: {objective.nome}")
+            return
+        
+        click.echo(f"📜 Histórico de Ações da IA - {objective.nome}")
+        click.echo("")
+        
+        for i, action in enumerate(actions, 1):
+            click.echo(f"{i}. [{action['action_type']}] {action['created_at'].strftime('%Y-%m-%d %H:%M')}")
+            click.echo(f"   Agente: {action.get('ia_agent', 'N/A')}")
+            
+            if action['files_changed']:
+                click.echo("   Arquivos alterados:")
+                for file_change in action['files_changed']:
+                    click.echo(f"     - {file_change['file']}: {file_change['description']}")
+            
+            click.echo("")
+    else:
+        # Histórico geral (últimas ações de todos os objetivos)
+        with db._connection() as conn:
+            cursor = conn.execute("""
+                SELECT ia.*, o.nome as objective_name 
+                FROM ia_action_log ia
+                LEFT JOIN objectives o ON ia.objective_id = o.id
+                ORDER BY ia.created_at DESC 
+                LIMIT ?
+            """, (limit,))
+            rows = cursor.fetchall()
+        
+        if not rows:
+            click.echo("📭 Nenhuma ação da IA registrada.")
+            return
+        
+        click.echo("📜 Histórico Geral de Ações da IA")
+        click.echo("")
+        
+        for i, row in enumerate(rows, 1):
+            data = dict(row)
+            created_at = datetime.fromisoformat(data["created_at"])
+            
+            click.echo(f"{i}. {data.get('objective_name', 'Objetivo desconhecido')}")
+            click.echo(f"   [{data['action_type']}] {created_at.strftime('%Y-%m-%d %H:%M')}")
+            click.echo(f"   Agente: {data.get('ia_agent', 'N/A')}")
+            click.echo("")
 
 
 @project.command(name="check")

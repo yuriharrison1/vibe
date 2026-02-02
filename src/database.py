@@ -83,6 +83,21 @@ class Database:
                     FOREIGN KEY (objective_id) REFERENCES objectives(id)
                 )
             """)
+            # Tabela ia_action_log (para Milestone 5)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ia_action_log (
+                    id TEXT PRIMARY KEY,
+                    objective_id TEXT NOT NULL,
+                    action_type TEXT NOT NULL,
+                    files_changed TEXT NOT NULL,
+                    tests_impacted TEXT,
+                    decisions_made TEXT,
+                    assumptions TEXT,
+                    created_at TEXT NOT NULL,
+                    ia_agent TEXT,
+                    FOREIGN KEY (objective_id) REFERENCES objectives(id)
+                )
+            """)
 
     def create_objective(self, objective: Objective) -> bool:
         """Insere um novo objetivo no banco.
