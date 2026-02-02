@@ -8,9 +8,10 @@ Sistema de orquestração que organiza, governa e valida projetos feitos com vib
 
 ## Status
 
-🚧 Em desenvolvimento - Milestone 3 ✅ concluído
+🚀 Versão 1.0 - Milestone 6 ✅ concluído
 
-![Milestone 3](https://img.shields.io/badge/milestone-3%20complete-green)
+![Version 1.0](https://img.shields.io/badge/version-1.0-blue)
+![Milestone 6](https://img.shields.io/badge/milestone-6%20complete-green)
 
 ## Documentação
 

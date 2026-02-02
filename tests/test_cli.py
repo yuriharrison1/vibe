@@ -29,7 +29,7 @@ def test_cli_version_shows_version() -> None:
     """--version exibe versão correta."""
     runner = CliRunner()
     result = runner.invoke(main, ["--version"])
-    assert "0.4.0" in result.output
+    assert "1.0.0" in result.output
 
 
 def test_project_subcommand_exists() -> None:

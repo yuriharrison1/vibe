@@ -4,8 +4,9 @@ Este arquivo define os marcos de execução do projeto.
 Cada milestone só é considerada concluída quando seus objetivos
 e testes associados estiverem completos.
 
-**Progresso atual:** Milestone 6 concluído ✅
-**Data da conclusão:** 2026-02-02
+**Progresso atual:** Milestone 7 em andamento 🚧
+**Versão:** 1.0.0
+**Data da conclusão do Milestone 6:** 2026-02-02
 
 ---
 
@@ -227,7 +228,7 @@ Critério de aceite:
 - Fluxo completo validado
 - Nenhuma etapa manual escondida
 
-**Status:** Próximo após conclusão do Milestone 6
+**Status:** Em andamento (dogfooding ativo)
 
 ---
 
