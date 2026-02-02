@@ -76,8 +76,8 @@ def test_run_objective_tests_with_failure(test_runner: TestRunner, database: Dat
     )
     database.create_objective(obj)
     
-    # Criar diretório de testes
-    test_dir = tmp_path / "tests" / "objectives" / obj.id
+    # Criar diretório de testes na estrutura correta
+    test_dir = tmp_path / "objectives" / obj.id
     test_dir.mkdir(parents=True)
     
     # Criar arquivo de teste com falha
@@ -108,7 +108,7 @@ def test_test_results_persisted(test_runner: TestRunner, database: Database, tmp
     )
     database.create_objective(obj)
     
-    test_dir = tmp_path / "tests" / "objectives" / obj.id
+    test_dir = tmp_path / "objectives" / obj.id
     test_dir.mkdir(parents=True)
     
     test_file = test_dir / "test_persist.py"

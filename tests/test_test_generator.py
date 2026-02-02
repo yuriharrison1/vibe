@@ -104,11 +104,11 @@ def test_generate_tests_for_objective(tmp_path: Path) -> None:
     # O gerador cria arquivos com prefixo "test_" + test_type
     # map_objective_to_test_types retorna ["test_execution", "test_exit_code", ...]
     # Então test_type = "test_execution", e o arquivo será "test_test_execution.py"
-    # Vamos verificar os arquivos reais
-    actual_files = [f.name for f in test_dir.iterdir() if f.is_file() and f.name.endswith('.py')]
-    print(f"Arquivos gerados: {actual_files}")
+    # Vamos verificar os arquivos reais (apenas arquivos de teste, excluindo __init__.py)
+    actual_files = [f.name for f in test_dir.iterdir() if f.is_file() and f.name.endswith('.py') and f.name.startswith('test_')]
+    print(f"Arquivos de teste gerados: {actual_files}")
     
-    # Esperamos 6 arquivos (CLI_COMMAND + FILESYSTEM)
+    # Esperamos 6 arquivos de teste (CLI_COMMAND + FILESYSTEM)
     assert len(actual_files) == 6
     
     # Verificar se contém os tipos esperados
