@@ -29,6 +29,50 @@ def main() -> None:
     pass
 
 
+@main.command(name="setup")
+@click.option("--force", is_flag=True, help="Forçar configuração mesmo se já estiver configurado")
+def setup(force: bool) -> None:
+    """Configura o ambiente para execução de testes."""
+    click.echo("⚙️  Configurando ambiente...")
+    
+    # 1. Criar diretório objectives se não existir
+    objectives_dir = Path.cwd() / "objectives"
+    objectives_dir.mkdir(exist_ok=True)
+    
+    # 2. Gerar arquivos para objetivos existentes
+    db = _get_database()
+    objectives = db.list_objectives()
+    
+    created_files = 0
+    for obj in objectives:
+        objective_file = objectives_dir / f"{obj.id}.json"
+        if not objective_file.exists() or force:
+            objective_data = obj.to_dict()
+            with open(objective_file, 'w', encoding='utf-8') as f:
+                json.dump(objective_data, f, indent=2, ensure_ascii=False)
+            created_files += 1
+    
+    if created_files > 0:
+        click.echo(f"📄 Criados {created_files} arquivo(s) de objetivo")
+    
+    # 3. Sincronizar banco com arquivos
+    synced_ids = db.sync_objectives_from_files(objectives_dir)
+    if synced_ids:
+        click.echo(f"🔄 Sincronizados {len(synced_ids)} objetivo(s)")
+    
+    # 4. Gerar testes para objetivos sem testes
+    for obj in objectives:
+        test_dir = Path("tests") / "objectives" / obj.id
+        if not test_dir.exists() or force:
+            from src.test_generator import generate_tests_for_objective
+            success = generate_tests_for_objective(obj)
+            if success:
+                click.echo(f"🧪 Gerados testes para {obj.nome}")
+    
+    click.secho("✅ Ambiente configurado!", fg="green")
+    click.echo("   Execute 'vibe test run --all' para executar todos os testes")
+
+
 @main.group()
 def project() -> None:
     """Gerenciamento de projeto."""
@@ -233,6 +277,9 @@ def project_check(path: str) -> None:
     file_integrity_errors = validator.validate_objective_files_integrity()
     errors.extend(file_integrity_errors)
     
+    # Verificar se o diretório objectives existe
+    objectives_dir = project_path / "objectives"
+    
     # Validar saúde dos testes
     click.echo("🧪 Validação de Testes")
     click.echo("")
@@ -269,6 +316,13 @@ def project_check(path: str) -> None:
     # Combinar todos os erros
     all_errors = errors + critical_errors
     
+    # Se houver objetivos sem arquivos, sugerir correção
+    missing_file_errors = [e for e in all_errors if "existe no banco mas não tem arquivo" in e]
+    if missing_file_errors and not objectives_dir.exists():
+        click.echo("\n💡 Sugestão: O diretório 'objectives' não existe. Crie-o com:")
+        click.echo("   mkdir objectives")
+        click.echo("   Ou execute: vibe objective generate-files --all")
+    
     if not all_errors and not warnings:
         click.secho("✓ Estrutura válida!", fg="green")
         click.secho("✓ Todos os objetivos têm testes.", fg="green")
@@ -286,6 +340,12 @@ def project_check(path: str) -> None:
             click.echo("\nAvisos:")
             for warning in warnings:
                 click.secho(f"  • {warning}", fg="yellow")
+        
+        # Se houver apenas erros de arquivos faltantes, sugerir correção
+        if missing_file_errors and len(missing_file_errors) == len(all_errors):
+            click.echo("\n💡 Para corrigir automaticamente, execute:")
+            click.echo("   vibe objective generate-files --all")
+            click.echo("   vibe objective sync-files")
         
         if critical_errors:
             click.echo(f"\nResultado: ❌ FALHOU (Problemas críticos: {len(critical_errors)})")
@@ -612,6 +672,8 @@ def _color_status(status: ObjectiveStatus) -> str:
         ObjectiveStatus.ATIVO: "yellow",
         ObjectiveStatus.BLOQUEADO: "magenta",
         ObjectiveStatus.DEFINIDO: "white",
+        ObjectiveStatus.INCOMPLETO: "yellow",
+        ObjectiveStatus.TESTS_SKIPPED: "cyan",
     }
     color = colors.get(status, "white")
     return click.style(status.value, fg=color)
@@ -830,6 +892,44 @@ def _display_test_results(summary: TestSummary, verbose: bool) -> None:
         click.secho("   Estado: ❌ FALHOU", fg="red")
 
 
+@objective.command(name="generate-files")
+@click.option("--all", is_flag=True, help="Gerar arquivos para todos os objetivos")
+@click.option("--objective-id", help="ID do objetivo específico")
+def objective_generate_files(all: bool, objective_id: Optional[str] = None) -> None:
+    """Gera arquivos JSON para objetivos que não os têm."""
+    db = _get_database()
+    
+    if all:
+        objectives = db.list_objectives()
+    elif objective_id:
+        objective = db.get_objective(objective_id)
+        if not objective:
+            click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+            raise SystemExit(1)
+        objectives = [objective]
+    else:
+        click.secho("❌ Use --all ou --objective-id", fg="red")
+        raise SystemExit(1)
+    
+    objectives_dir = Path.cwd() / "objectives"
+    objectives_dir.mkdir(exist_ok=True)
+    
+    created = 0
+    for obj in objectives:
+        objective_file = objectives_dir / f"{obj.id}.json"
+        if not objective_file.exists():
+            objective_data = obj.to_dict()
+            with open(objective_file, 'w', encoding='utf-8') as f:
+                json.dump(objective_data, f, indent=2, ensure_ascii=False)
+            click.echo(f"📄 Criado: {objective_file.name}")
+            created += 1
+    
+    if created > 0:
+        click.secho(f"✅ {created} arquivo(s) de objetivo criado(s)", fg="green")
+    else:
+        click.echo("📭 Todos os objetivos já têm arquivos")
+
+
 @objective.command(name="generate-tests")
 @click.argument("objective_id")
 @click.option("--force", is_flag=True, help="Forçar geração mesmo se testes já existirem")
@@ -1010,6 +1110,47 @@ def objective_status(objective_id: Optional[str], all: bool, verbose: bool) -> N
                 time_info = f" | {time_info} atrás"
             
             click.echo(f"  {obj.id[:8]} | {nome_trunc} | {click.style(status_str, fg=color)}{time_info}")
+
+
+@objective.command(name="update-status")
+@click.argument("objective_id")
+@click.argument("status", type=click.Choice([s.value for s in ObjectiveStatus]))
+def objective_update_status(objective_id: str, status: str) -> None:
+    """Atualiza o status de um objetivo."""
+    db = _get_database()
+    validator = _get_idempotency_validator()
+    
+    objective = db.get_objective(objective_id)
+    if not objective:
+        click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
+        raise SystemExit(1)
+    
+    new_status = ObjectiveStatus(status)
+    
+    # Verificar se está tentando marcar como CONCLUIDO um objetivo com TESTS_SKIPPED
+    if new_status == ObjectiveStatus.CONCLUIDO and objective.status == ObjectiveStatus.TESTS_SKIPPED:
+        click.secho("❌ Não é possível marcar objetivo como CONCLUIDO porque ele tem status TESTS_SKIPPED", fg="red")
+        click.echo("   Execute os testes normalmente (sem --skip-tests) primeiro.")
+        raise SystemExit(1)
+    
+    # Atualizar status
+    objective.status = new_status
+    objective.updated_at = datetime.now()
+    
+    success = db.update_objective(objective)
+    if not success:
+        click.secho("❌ Falha ao atualizar status", fg="red")
+        raise SystemExit(1)
+    
+    click.secho(f"✅ Status atualizado para {new_status.value}", fg="green")
+    
+    # Registrar comando
+    validator.record_command(
+        command="objective update-status",
+        arguments={"objective_id": objective_id, "status": status},
+        result=OperationResult.SUCCESS,
+        user=None
+    )
 
 
 if __name__ == "__main__":

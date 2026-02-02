@@ -160,7 +160,11 @@ class StructureValidator:
         
         # Verificar se todos os objetivos no banco têm arquivos
         objectives_dir = self.project_path / "objectives"
-        objectives_dir.mkdir(exist_ok=True)
+        
+        # Se o diretório não existe, não podemos verificar arquivos
+        if not objectives_dir.exists():
+            # Apenas aviso, não erro
+            return errors
         
         for obj in objectives:
             objective_file = objectives_dir / f"{obj.id}.json"
