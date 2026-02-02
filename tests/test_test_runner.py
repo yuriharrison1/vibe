@@ -40,7 +40,8 @@ def test_run_objective_tests(test_runner: TestRunner, database: Database, tmp_pa
     database.create_objective(obj)
     
     # Gerar testes em um diretório temporário
-    test_dir = tmp_path / "tests" / "objectives" / obj.id
+    # O TestRunner espera: base_path / "objectives" / obj.id
+    test_dir = tmp_path / "objectives" / obj.id
     test_dir.mkdir(parents=True)
     
     # Criar um arquivo de teste simples
