@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from src.models import Objective, ObjectiveStatus, ObjectiveType
+from src.models import Objective, ObjectiveStatus, ObjectiveType, TestRun, TestSummary
 
 
 class Database:

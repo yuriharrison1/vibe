@@ -1,8 +1,9 @@
 """CLI principal do Vibe."""
 
 import json
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import click
 
