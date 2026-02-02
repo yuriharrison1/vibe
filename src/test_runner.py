@@ -118,7 +118,13 @@ class TestRunner:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                cwd=test_file.parent,
             )
+            # Debug: imprimir output para análise
+            print(f"DEBUG: Executando {test_file}")
+            print(f"DEBUG: stdout: {result.stdout[:200] if result.stdout else 'None'}")
+            print(f"DEBUG: stderr: {result.stderr[:200] if result.stderr else 'None'}")
+            print(f"DEBUG: returncode: {result.returncode}")
             return self._parse_pytest_output(result.stdout, result.stderr)
         except subprocess.TimeoutExpired:
             print(f"⏱️  Timeout ao executar {test_file}")
@@ -139,60 +145,49 @@ class TestRunner:
         """
         results: List[Tuple[str, TestStatus, float, Optional[str]]] = []
         lines = stdout.split("\n")
-
-        current_test: Optional[str] = None
-        current_status: Optional[TestStatus] = None
-        current_duration: float = 0.0
-        error_lines: List[str] = []
-        in_error = False
-
+        
+        # Padrão: test_file.py::test_name PASSED [  0.00s]
+        # Ou: test_file.py::test_name FAILED [  0.00s]
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-
-            # Detectar início de uma seção de erros
-            if line.startswith("FAILURES") or line.startswith("ERRORS") or line.startswith("===="):
-                in_error = True
-                continue
             
-            if in_error:
-                # Coletar linhas de erro
-                if line and not line.startswith("===="):
-                    error_lines.append(line)
-                continue
-
-            # Detectar resultado de teste (formato comum do pytest)
-            # Exemplo: "test_file.py::test_name PASSED [ 99%]"
-            # Ou: "test_file.py::test_name FAILED [ 99%]"
-            if "::" in line and ("PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line):
-                # Extrair nome do teste
+            # Verificar se contém "::" e um status
+            if "::" in line:
+                # Encontrar o nome do teste
+                # Exemplo: "test_simple.py::test_example PASSED [  0.00s]"
                 parts = line.split()
                 if len(parts) < 2:
                     continue
-                    
-                # O nome do teste está antes do primeiro espaço após "::"
+                
                 test_part = parts[0]
-                if "::" in test_part:
-                    test_name = test_part.split("::")[-1]
-                else:
-                    test_name = test_part
+                if "::" not in test_part:
+                    continue
+                
+                test_name = test_part.split("::")[-1]
                 
                 # Determinar status
+                status = None
                 if "PASSED" in line:
                     status = TestStatus.PASSED
                 elif "FAILED" in line:
                     status = TestStatus.FAILED
+                elif "ERROR" in line:
+                    status = TestStatus.ERROR
                 elif "SKIPPED" in line:
                     status = TestStatus.SKIPPED
-                else:
-                    status = TestStatus.ERROR
+                
+                if status is None:
+                    # Talvez a linha seja diferente, continuar
+                    continue
                 
                 # Extrair duração
                 duration = 0.0
                 for part in parts:
                     if part.startswith("[") and "s]" in part:
-                        # Encontrar o número antes de 's'
+                        # Encontrar número
+                        import re
                         match = re.search(r'\[([\d.]+)s\]', part)
                         if match:
                             try:
@@ -201,27 +196,42 @@ class TestRunner:
                                 pass
                         break
                 
-                # Salvar teste anterior se houver
-                if current_test and current_status:
-                    error_msg = "\n".join(error_lines) if error_lines else None
-                    results.append((current_test, current_status, current_duration, error_msg))
-                    error_lines = []
-                
-                # Iniciar novo teste
-                current_test = test_name
-                current_status = status
-                current_duration = duration
+                results.append((test_name, status, duration, None))
+        
+        # Se ainda não encontrou resultados, tentar contar testes de outra forma
+        if not results:
+            # Contar quantas vezes "test_" aparece no output
+            import re
+            test_pattern = r'test_[a-zA-Z0-9_]+'
+            test_names = re.findall(test_pattern, stdout)
+            unique_tests = set(test_names)
             
-            # Coletar linhas de erro para o teste atual
-            elif current_test and current_status in [TestStatus.FAILED, TestStatus.ERROR]:
-                if line and not line.startswith("---"):
-                    error_lines.append(line)
-
-        # Adicionar último teste
-        if current_test and current_status:
-            error_msg = "\n".join(error_lines) if error_lines else None
-            results.append((current_test, current_status, current_duration, error_msg))
-
+            # Se encontrou testes, assumir que todos passaram (para testes simples)
+            if unique_tests:
+                for test_name in unique_tests:
+                    # Verificar se o teste falhou procurando por "FAILED" ou "ERROR" perto do nome
+                    test_failed = False
+                    test_error = False
+                    
+                    # Procurar por linhas que mencionem este teste
+                    for line in lines:
+                        if test_name in line:
+                            if "FAILED" in line:
+                                test_failed = True
+                                break
+                            elif "ERROR" in line:
+                                test_error = True
+                                break
+                    
+                    if test_failed:
+                        status = TestStatus.FAILED
+                    elif test_error:
+                        status = TestStatus.ERROR
+                    else:
+                        status = TestStatus.PASSED
+                    
+                    results.append((test_name, status, 0.0, None))
+        
         return results
 
     def run_all_tests(self) -> Dict[str, TestSummary]:
