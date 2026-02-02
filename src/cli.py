@@ -930,6 +930,93 @@ def objective_generate_files(all: bool, objective_id: Optional[str] = None) -> N
         click.echo("📭 Todos os objetivos já têm arquivos")
 
 
+@objective.command(name="sync-files")
+@click.option("--dry-run", is_flag=True, help="Mostrar o que seria feito sem executar")
+def objective_sync_files(dry_run: bool) -> None:
+    """Sincroniza objetivos a partir de arquivos JSON em /objectives."""
+    db = _get_database()
+    objectives_dir = Path.cwd() / "objectives"
+    
+    if not objectives_dir.exists():
+        click.secho("❌ Diretório /objectives não existe", fg="red")
+        raise SystemExit(1)
+    
+    click.echo("🔄 Sincronizando objetivos a partir de arquivos...")
+    
+    if dry_run:
+        click.echo("📋 Modo dry-run - Nenhuma alteração será feita")
+        # Listar arquivos que seriam processados
+        for file_path in objectives_dir.glob("*.json"):
+            click.echo(f"  📄 {file_path.name}")
+        return
+    
+    synced_ids = db.sync_objectives_from_files(objectives_dir)
+    
+    if synced_ids:
+        click.secho(f"✅ {len(synced_ids)} objetivo(s) sincronizado(s)", fg="green")
+        for obj_id in synced_ids:
+            objective = db.get_objective(obj_id)
+            if objective:
+                click.echo(f"   • {objective.nome} ({obj_id})")
+    else:
+        click.echo("📭 Nenhum objetivo foi sincronizado")
+    
+    # Registrar comando
+    validator = _get_idempotency_validator()
+    validator.record_command(
+        command="objective sync-files",
+        arguments={"dry_run": dry_run},
+        result=OperationResult.SUCCESS,
+        user=None
+    )
+
+
+@objective.command(name="validate-file")
+@click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
+def objective_validate_file(file_path: str) -> None:
+    """Valida um arquivo de objetivo JSON."""
+    import json
+    from src.models import Objective
+    
+    path = Path(file_path)
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Tentar criar objetivo
+        objective = Objective.from_dict(data)
+        
+        # Validar
+        errors = objective.validate()
+        if errors:
+            click.secho("❌ Arquivo inválido:", fg="red")
+            for err in errors:
+                click.echo(f"  - {err}")
+            raise SystemExit(1)
+        
+        # Verificar campos adicionais
+        required_fields = ['nome', 'descricao', 'tipos']
+        missing = [field for field in required_fields if field not in data]
+        if missing:
+            click.secho("❌ Campos obrigatórios faltando:", fg="red")
+            for field in missing:
+                click.echo(f"  - {field}")
+            raise SystemExit(1)
+        
+        click.secho("✅ Arquivo válido!", fg="green")
+        click.echo(f"   Nome: {objective.nome}")
+        click.echo(f"   ID: {objective.id}")
+        click.echo(f"   Tipos: {', '.join(t.value for t in objective.tipos)}")
+        click.echo(f"   Status: {objective.status.value}")
+        
+    except json.JSONDecodeError as e:
+        click.secho(f"❌ JSON inválido: {e}", fg="red")
+        raise SystemExit(1)
+    except Exception as e:
+        click.secho(f"❌ Erro: {e}", fg="red")
+        raise SystemExit(1)
+
+
 @objective.command(name="generate-tests")
 @click.argument("objective_id")
 @click.option("--force", is_flag=True, help="Forçar geração mesmo se testes já existirem")
