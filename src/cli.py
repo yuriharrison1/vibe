@@ -229,6 +229,10 @@ def project_check(path: str) -> None:
     objective_errors = validator.validate_objectives_integrity()
     errors.extend(objective_errors)
     
+    # Validar integridade dos arquivos de objetivo
+    file_integrity_errors = validator.validate_objective_files_integrity()
+    errors.extend(file_integrity_errors)
+    
     # Validar saúde dos testes
     click.echo("🧪 Validação de Testes")
     click.echo("")
@@ -238,7 +242,7 @@ def project_check(path: str) -> None:
     critical_errors = []
     
     for problem in health_problems:
-        if "marcado como CONCLUIDO" in problem:
+        if "marcado como CONCLUIDO" in problem or "proibido" in problem:
             critical_errors.append(problem)
         else:
             warnings.append(problem)
@@ -269,6 +273,7 @@ def project_check(path: str) -> None:
         click.secho("✓ Estrutura válida!", fg="green")
         click.secho("✓ Todos os objetivos têm testes.", fg="green")
         click.secho("✓ Saúde dos testes OK.", fg="green")
+        click.secho("✓ Integridade dos arquivos OK.", fg="green")
         raise SystemExit(0)
     else:
         if all_errors:
@@ -486,6 +491,19 @@ def objective_new(force: bool) -> None:
         invariantes=invariantes,
         status=ObjectiveStatus.DEFINIDO,
     )
+    
+    # Criar arquivo de objetivo em /objectives
+    objectives_dir = Path.cwd() / "objectives"
+    objectives_dir.mkdir(exist_ok=True)
+    
+    objective_file = objectives_dir / f"{objective.id}.json"
+    
+    objective_data = objective.to_dict()
+    
+    with open(objective_file, 'w', encoding='utf-8') as f:
+        json.dump(objective_data, f, indent=2, ensure_ascii=False)
+    
+    click.echo(f"📄 Arquivo de objetivo criado: {objective_file}")
 
     # Validar
     errors = objective.validate()
@@ -604,7 +622,8 @@ def _color_status(status: ObjectiveStatus) -> str:
 @click.option("--all", is_flag=True, help="Executar testes de todos os objetivos")
 @click.option("--verbose", "-v", is_flag=True, help="Mostrar output detalhado")
 @click.option("--force", is_flag=True, help="Forçar execução mesmo se testes foram executados recentemente")
-def test_run(objective_id: Optional[str], all: bool, verbose: bool, force: bool) -> None:
+@click.option("--skip-tests", is_flag=True, help="Pular execução de testes (objetivo não pode ser concluído)")
+def test_run(objective_id: Optional[str], all: bool, verbose: bool, force: bool, skip_tests: bool) -> None:
     """Executa testes de um objetivo específico ou todos."""
     # Validações
     if not objective_id and not all:
@@ -656,6 +675,29 @@ def test_run(objective_id: Optional[str], all: bool, verbose: bool, force: bool)
         if not objective:
             click.secho(f"❌ Objetivo '{objective_id}' não encontrado", fg="red")
             raise SystemExit(1)
+        
+        # Se skip_tests for True, atualizar status e sair
+        if skip_tests:
+            click.secho("⚠️  ATENÇÃO: Testes serão pulados para este objetivo", fg="yellow")
+            click.echo("   O objetivo NÃO poderá ser marcado como CONCLUIDO")
+            click.echo("   O status será atualizado para TESTS_SKIPPED")
+            
+            # Atualizar status do objetivo
+            objective.status = ObjectiveStatus.TESTS_SKIPPED
+            objective.updated_at = datetime.now()
+            db.update_objective(objective)
+            
+            # Registrar no histórico de comandos
+            validator.record_command(
+                command="test run",
+                arguments={"objective_id": objective_id, "skip_tests": True},
+                result=OperationResult.SUCCESS,
+                user=None
+            )
+            
+            click.secho(f"✅ Status atualizado para TESTS_SKIPPED", fg="green")
+            click.echo("   Para executar os testes normalmente, rode o comando sem --skip-tests")
+            raise SystemExit(0)
         
         # Verificar se tem testes
         test_dir = Path("tests") / "objectives" / objective_id

@@ -25,6 +25,8 @@ class ObjectiveStatus(str, Enum):
     BLOQUEADO = "BLOQUEADO"
     CONCLUIDO = "CONCLUIDO"
     FALHOU = "FALHOU"
+    INCOMPLETO = "INCOMPLETO"
+    TESTS_SKIPPED = "TESTS_SKIPPED"
 
 
 @dataclass

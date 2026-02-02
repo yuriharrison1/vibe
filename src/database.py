@@ -251,6 +251,41 @@ class Database:
         )
         return obj
 
+    def sync_objectives_from_files(self, objectives_dir: Path) -> List[str]:
+        """Sincroniza objetivos a partir de arquivos JSON.
+        
+        Args:
+            objectives_dir: Diretório contendo arquivos .json de objetivos
+            
+        Returns:
+            Lista de IDs de objetivos sincronizados
+        """
+        synced_ids = []
+        if not objectives_dir.exists():
+            return synced_ids
+        
+        for file_path in objectives_dir.glob("*.json"):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Verificar se o objetivo já existe
+                existing = self.get_objective(data.get("id", ""))
+                if existing:
+                    # Atualizar objetivo existente
+                    objective = Objective.from_dict(data)
+                    self.update_objective(objective)
+                else:
+                    # Criar novo objetivo
+                    objective = Objective.from_dict(data)
+                    self.create_objective(objective)
+                
+                synced_ids.append(objective.id)
+            except Exception as e:
+                print(f"Erro ao processar arquivo {file_path}: {e}")
+        
+        return synced_ids
+
     # Métodos para test_runs
     def save_test_run(self, test_run: "TestRun") -> bool:
         """Salva uma execução de teste no banco."""

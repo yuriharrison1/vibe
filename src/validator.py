@@ -124,6 +124,13 @@ class StructureValidator:
                     f"mas {summary.failed + summary.error} teste(s) falhando"
                 )
             
+            # Verificar se objetivo marcado como CONCLUIDO mas status é TESTS_SKIPPED
+            if obj.status == ObjectiveStatus.CONCLUIDO and obj.status == ObjectiveStatus.TESTS_SKIPPED:
+                problems.append(
+                    f"Objetivo '{obj.nome}' ({obj.id}) marcado como CONCLUIDO "
+                    f"mas tem status TESTS_SKIPPED (proibido)"
+                )
+            
             # Verificar se objetivo ATIVO sem testes executados há mais de 24h
             if obj.status == ObjectiveStatus.ATIVO:
                 from datetime import datetime, timedelta
@@ -136,3 +143,34 @@ class StructureValidator:
                     )
         
         return problems
+    
+    def validate_objective_files_integrity(self) -> List[str]:
+        """Valida a integridade entre arquivos de objetivo e banco de dados.
+        
+        Returns:
+            Lista de erros encontrados.
+        """
+        errors: List[str] = []
+        db_path = self.project_path / "state" / "vibe.db"
+        if not db_path.exists():
+            return errors
+        
+        db = Database(db_path)
+        objectives = db.list_objectives()
+        
+        # Verificar se todos os objetivos no banco têm arquivos
+        objectives_dir = self.project_path / "objectives"
+        objectives_dir.mkdir(exist_ok=True)
+        
+        for obj in objectives:
+            objective_file = objectives_dir / f"{obj.id}.json"
+            if not objective_file.exists():
+                errors.append(f"Objetivo '{obj.nome}' ({obj.id}) existe no banco mas não tem arquivo em {objective_file}")
+        
+        # Verificar se todos os arquivos têm objetivos correspondentes no banco
+        for file_path in objectives_dir.glob("*.json"):
+            objective_id = file_path.stem
+            if not any(obj.id == objective_id for obj in objectives):
+                errors.append(f"Arquivo {file_path} existe mas não há objetivo correspondente no banco")
+        
+        return errors
